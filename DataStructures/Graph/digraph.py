@@ -32,30 +32,40 @@ def remove_vertex(my_graph, key_u):
                 my_graph['num_edges'] -= 1
     return my_graph
 
-def add_edge(my_graph, key_u, key_v, weight=1.0):
+def add_edge(my_graph, key_u, key_v, weight, undirected=False):
     if not contains_vertex(my_graph, key_u):
-        raise Exception("El vertice u no existe")
+        raise Exception("El vértice u no existe")
     if not contains_vertex(my_graph, key_v):
-        raise Exception("El vertice v no existe")
+        raise Exception("El vértice v no existe")
 
-    # Obtener el vertice origen
+    # Insertar el arco u → v
+    insert_directed_edge(my_graph, key_u, key_v, weight)
+
+    # Si el grafo es no dirigido, también insertar v → u
+    if undirected and not has_edge(my_graph, key_v, key_u):
+        insert_directed_edge(my_graph, key_v, key_u, weight)
+
+def insert_directed_edge(my_graph, key_u, key_v, weight):
     u_entry = map.get(my_graph['vertices'], key_u)
-    
-    # Si no tiene adjacents, inicializarlo como mapa
+
     if 'adjacents' not in u_entry:
         u_entry['adjacents'] = map.new_map(num_elements=2, load_factor=0.5)
-    
+
     # Verificar si ya existe el arco
     existing_edge = map.get(u_entry['adjacents'], key_v)
     if existing_edge is None:
         my_graph['num_edges'] += 1
-    
-    # Agregar/actualizar el arco
+
     edge_info = {'to': key_v, 'weight': weight}
     map.put(u_entry['adjacents'], key_v, edge_info)
-    
-    return my_graph
 
+def has_edge(my_graph, key_u, key_v):
+    if not contains_vertex(my_graph, key_u):
+        return False
+    u_entry = map.get(my_graph['vertices'], key_u)
+    if 'adjacents' not in u_entry:
+        return False
+    return map.contains(u_entry['adjacents'], key_v)
 
 def order(my_graph):
     return map.size(my_graph['vertices'])

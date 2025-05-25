@@ -1,12 +1,14 @@
 import sys
+from App import logic
+from tabulate import tabulate
 
 
 def new_logic():
     """
         Se crea una instancia del controlador
     """
-    #TODO: Llamar la función de la lógica donde se crean las estructuras de datos
-    pass
+    control = logic.new_logic()
+    return control
 
 def print_menu():
     print("Bienvenido")
@@ -25,9 +27,18 @@ def load_data(control):
     """
     Carga los datos
     """
-    #TODO: Realizar la carga de datos
-    pass
+    catalog, total_domicilios, total_domiciliarios, total_nodos, total_arcos, restaurantes, destinos, total_tiempo, delta = logic.load_data(control)
+    print("🗂️ Catálogo cargado:", "Sí" if catalog else "No")
+    print("📦 Total de domicilios:", total_domicilios)
+    print("🚴‍♂️ Total de domiciliarios:", total_domiciliarios)
+    print("🧩 Total de nodos:", total_nodos)
+    print("🔗 Total de arcos:", total_arcos)
+    print("🍽️ Cantidad de restaurantes:", restaurantes)
+    print("📍 Cantidad de destinos:", destinos)
+    print("⏱️ Tiempo total de procesamiento:", total_tiempo, "segundos")
+    print("⏳ Delta de tiempo (carga):", delta, "milisegundos")
 
+    return catalog
 
 def print_data(control, id):
     """
