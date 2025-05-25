@@ -14,8 +14,16 @@ def insert_vertex(my_graph, key_u, info_u):
     map.put(my_graph['vertices'], key_u, info_u)
     return my_graph
 
-def update_vertex_info(my_graph, key_u, new_info_u):
-    my_graph["vertices"] = map.put(my_graph["vertices"], key_u, new_info_u)
+def update_vertex_info(my_graph, key_u, new_info):
+    if not contains_vertex(my_graph, key_u):
+        raise Exception("Vértice no encontrado")
+    
+    # Conservar la estructura de adyacentes si existe
+    current = map.get(my_graph['vertices'], key_u)
+    if 'adjacents' in current:
+        new_info['adjacents'] = current['adjacents']
+    
+    map.put(my_graph['vertices'], key_u, new_info)
     return my_graph
 
 def remove_vertex(my_graph, key_u):
@@ -33,16 +41,16 @@ def remove_vertex(my_graph, key_u):
     return my_graph
 
 def add_edge(my_graph, key_u, key_v, weight, undirected=False):
-    if not contains_vertex(my_graph, key_u):
-        raise Exception("El vértice u no existe")
-    if not contains_vertex(my_graph, key_v):
-        raise Exception("El vértice v no existe")
+    if not contains_vertex(my_graph, key_u) or not contains_vertex(my_graph, key_v):
+        raise Exception("Vértice(s) no existente(s)")
 
-    # Insertar el arco u → v
+    # Solo incrementar num_edges si es una nueva conexión
+    if not has_edge(my_graph, key_u, key_v):
+        my_graph['num_edges'] += 1
     insert_directed_edge(my_graph, key_u, key_v, weight)
 
-    # Si el grafo es no dirigido, también insertar v → u
     if undirected and not has_edge(my_graph, key_v, key_u):
+        my_graph['num_edges'] += 1
         insert_directed_edge(my_graph, key_v, key_u, weight)
 
 def insert_directed_edge(my_graph, key_u, key_v, weight):
@@ -62,10 +70,11 @@ def insert_directed_edge(my_graph, key_u, key_v, weight):
 def has_edge(my_graph, key_u, key_v):
     if not contains_vertex(my_graph, key_u):
         return False
+    
     u_entry = map.get(my_graph['vertices'], key_u)
-    if 'adjacents' not in u_entry:
-        return False
-    return map.contains(u_entry['adjacents'], key_v)
+    return ('adjacents' in u_entry and 
+            map.contains(u_entry['adjacents'], key_v))
+
 
 def order(my_graph):
     return map.size(my_graph['vertices'])
@@ -102,9 +111,8 @@ def get_vertex_information(my_graph, key_u):
     if not contains_vertex(my_graph, key_u):
         raise Exception("El vertice no existe")
     
-    vertex = get_vertex(my_graph, key_u)
-    # Eliminamos 'edges' para solo retornar la información del vértice
-    return {k: v for k, v in vertex.items() if k != 'edges'}
+    vertex_entry = map.get(my_graph['vertices'], key_u)
+    return vertex_entry  # Devuelve directamente la entrada del mapa
 
 def contains_vertex(my_graph, key_u):
     return map.contains(my_graph['vertices'], key_u)
@@ -137,25 +145,31 @@ def edges_vertex(my_graph, key_u):
 
 def get_vertex(my_graph, key_u):
     if not contains_vertex(my_graph, key_u):
-        raise Exception("El vertice no existe")
+        raise Exception("El vértice no existe")
 
-    vertex_value = map.get(my_graph['vertices'], key_u)
+    vertex_entry = map.get(my_graph['vertices'], key_u)
+    if vertex_entry is None:
+        raise Exception(f"No se encontró el vértice con clave: {key_u}")
     
+    vertex_value = vertex_entry
+
     vertex = {
-        'key': key_u,  
-        'value': vertex_value['value'], 
+        'key': key_u,
+        'value': vertex_value,
         'adjacents': []
     }
 
-    if 'adjacents' in vertex_value:
-        adj_keys = map.key_set(vertex_value['adjacents'])
+    if 'adjacents' in vertex_value and 'table' in vertex_value['adjacents']:
+        adj_map = vertex_value['adjacents']
+        adj_keys = map.key_set(adj_map)
+
         for key_v in adj_keys:
-            edge = map.get(vertex_value['adjacents'], key_v)
-            vertex['adjacents'].append({
-                'to': key_v,
-                'weight': edge['weight']
-            })
+            edge = map.get(adj_map, key_v)
+            if edge is not None:
+                vertex['adjacents'].append({
+                    'to': key_v,
+                    'weight': edge['weight']
+                })
 
     return vertex
-
 
