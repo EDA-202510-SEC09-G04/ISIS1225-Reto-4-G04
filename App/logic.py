@@ -14,6 +14,7 @@ from DataStructures.Map import map_functions as mf
 from DataStructures.Utils import error as error
 from DataStructures.Graph import digraph as gr
 from DataStructures.Map import map_linear_probing as mp
+from collections import deque
 
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
@@ -267,11 +268,45 @@ def req_1(catalog):
     pass
 
 
-def req_2(catalog):
+def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
     """
     Retorna el resultado del requerimiento 2
     """
-    # TODO: Modificar el requerimiento 2
+    my_graph = catalog['domicilios']
+    
+    sub_grafo= gr.new_graph(1000)
+    vertices = gr.vertices(my_graph)
+    
+    for v in vertices:
+        
+        info = gr.get_vertex_information(my_graph,v)
+        if 'domiciliarios' in info and id_domiciliario in  info['domiciliarios']:
+            gr.insert_vertex(sub_grafo,v,info)
+            
+    for v in gr.vertices(sub_grafo):
+        
+        info = gr.get_vertex_information(my_graph,v)
+        
+        if 'adjacents' in info:
+            adjacents = info['adjacents']
+            for w in mp.keys(adjacents):
+                edge = mp.get(adjacents,w)
+                
+                destino_info = gr.get_vertex_information(my_graph,w)
+                if id_domiciliario in destino_info.get('domiciliarios',[]):
+                    gr.add_edge(sub_grafo,v,w,weight=edge['weight'],undirected=True)
+                    
+    # Recorrido BFS para encontrar el camino más corto
+    
+    visited = set()
+    queue = deque()
+    parent = {}
+    
+    queue.append(ubicacion_A)
+    visited.add(ubicacion_A)
+    parent[ubicacion_A] = None
+    
+    found = False
     pass
 
 
