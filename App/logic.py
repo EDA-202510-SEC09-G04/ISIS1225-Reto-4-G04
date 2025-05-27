@@ -10,6 +10,7 @@ from DataStructures.Map import map_entry as me
 from DataStructures.Map import map_functions as mf
 from DataStructures.Utils import error as error
 from DataStructures.Graph import digraph as gr
+from DataStructures.Graph import bfs as bfs
 from DataStructures.Map import map_linear_probing as mp
 from App import utils as ut
 
@@ -191,18 +192,34 @@ def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
                     
     # Recorrido BFS para encontrar el camino más corto
     
-    visited = set()
-    queue = deque()
-    parent = {}
+    bfs_result = bfs.bfs(sub_grafo,ubicacion_A)
+    parent = bfs_result['parent']
     
-    queue.append(ubicacion_A)
-    visited.add(ubicacion_A)
-    parent[ubicacion_A] = None
+    path = []
+    current = ubicacion_B
+    while current is not None and current in parent:
+        path.append(current)
+        current = parent[current]
+        
+    path.reverse()
     
-    found = False
-    pass
+    if len(path) > 1 and path[0] == ubicacion_A:
+        
+        return{
+            'camino':path,
+            'num_puntos_intermedios': len(path) -2 if len(path) >= 2 else 0 
+        }
 
-
+    else:
+        
+        return{
+            
+            'camino': [],
+            'num_pumtos_intermedios': None,
+            'mensaje': 'No existe un camino simple entre las ubicaciones para ese domiciliario.'
+        }
+        
+        
 def req_3(catalog):
     """
     Retorna el resultado del requerimiento 3
