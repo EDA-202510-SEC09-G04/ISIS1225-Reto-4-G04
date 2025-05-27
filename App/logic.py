@@ -36,17 +36,28 @@ def new_logic():
 # Funciones para la carga de datos
 
 
-#formateo id del nodo
 def format_coord(coord):
-    coord = float(coord)
-    integer_part, decimal_part = str(coord).split('.')
-    formatted_decimal = (decimal_part + '0000')[:4]
-    return f"{integer_part}.{formatted_decimal}"
+    """
+    Formatea una coordenada a exactamente 4 decimales TRUNCADOS (sin redondeo)
+    Ejemplo: 12.345678 -> "12.3456" (no "12.3457")
+    """
+    try:
+        # Convertir a string y separar parte entera y decimal
+        str_coord = str(float(coord))
+        if '.' in str_coord:
+            integer_part, decimal_part = str_coord.split('.')
+            # Tomar solo primeros 4 decimales (sin redondear)
+            truncated_decimal = (decimal_part + '0000')[:4]
+            return f"{integer_part}.{truncated_decimal}"
+        else:
+            return f"{str_coord}.0000"
+    except ValueError:
+        raise ValueError(f"Coordenada inválida: {coord}")
 
 def format_location(lat, lon):
-    formatted_lat = format_coord(lat)
-    formatted_lon = format_coord(lon)
-    return f"{formatted_lat}_{formatted_lon}"
+    """Combina coordenadas formateadas con truncamiento"""
+    return f"{format_coord(lat)}_{format_coord(lon)}"
+
 
     
 def calcular_peso(my_graph, origen, destino):
@@ -77,12 +88,187 @@ def contar_tipos_nodos(my_graph):
     return num_restaurantes, num_destinos
 
 
+def crear_nodo(my_graph, node_id, connected_to, delivery_person, time, node_type):
+    """Función independiente para crear/actualizar nodos"""
+    time_int = int(time)
+    node_info = {
+        'domiciliarios': [delivery_person],
+        'tiempos': {connected_to: [time_int]},
+        'tipo': node_type,
+        'adjacents': mp.new_map(num_elements=5, load_factor=0.5)  # ¡Nuevo! Mapa para aristas
+    }
+    
+    if not gr.contains_vertex(my_graph, node_id):
+        # Insertar nuevo nodo
+        gr.insert_vertex(my_graph, node_id, node_info)
+    else:
+        # Actualizar nodo existente
+        current_info = gr.get_vertex_information(my_graph, node_id)
+        
+        # Actualizar domiciliarios (sin duplicados)
+        if 'domiciliarios' not in current_info:
+            current_info['domiciliarios'] = []
+        if delivery_person not in current_info['domiciliarios']:
+            current_info['domiciliarios'].append(delivery_person)
+        
+        # Actualizar tiempos
+        if 'tiempos' not in current_info:
+            current_info['tiempos'] = {}
+        if connected_to not in current_info['tiempos']:
+            current_info['tiempos'][connected_to] = []
+        current_info['tiempos'][connected_to].append(time_int)
+        
+        # Mantener adjacents existentes
+        if 'adjacents' in current_info:
+            node_info['adjacents'] = current_info['adjacents']
+        
+        # Actualizar el nodo
+        gr.update_vertex_info(my_graph, node_id, node_info)
+    
+    return my_graph
+
+
+# Para verificar un nodo específico:
+def print_node_info(graph, node_id):
+    if gr.contains_vertex(graph, node_id):
+        node = gr.get_vertex_information(graph, node_id)
+        print(f"\nNodo {node_id}:")
+        print(f"Tipo: {node.get('tipo')}")
+        print(f"Domiciliarios: {node.get('domiciliarios', [])}")
+        print(f"Tiempos: {node.get('tiempos', {})}")
+        print(f"Número de aristas: {mp.size(node.get('adjacents', {}))}")
+        print(f"Adjacenttes: {node.get('adjacents', {})} ")
+    else:
+        print(f"\nNodo {node_id} no existe")
+        
+def actualizar_arista(my_graph, origen, destino, peso=None):
+    """
+    Versión mejorada que acepta peso opcional.
+    Si no se provee peso, lo calcula automáticamente.
+    """
+    # Calcular peso si no se proporciona
+    if peso is None:
+        peso = calcular_peso(my_graph, origen, destino)
+    
+    # Obtener información de los vértices
+    origen_entry = mp.get(my_graph['vertices'], origen)
+    destino_entry = mp.get(my_graph['vertices'], destino)
+    
+    if not origen_entry or not destino_entry:
+        raise ValueError("Uno o ambos vértices no existen")
+    
+    # 1. Actualizar arista origen→destino
+    if 'adjacents' not in origen_entry:
+        origen_entry['adjacents'] = mp.new_map(num_elements=5, load_factor=0.5)
+    
+    es_nueva = not mp.contains(origen_entry['adjacents'], destino)
+    
+    origen_entry['adjacents'] = mp.put(
+        origen_entry['adjacents'],
+        destino,
+        {'weight': peso}
+    )
+    
+    # 2. Actualizar arista destino→origen (grafo no dirigido)
+    if 'adjacents' not in destino_entry:
+        destino_entry['adjacents'] = mp.new_map(num_elements=5, load_factor=0.5)
+    
+    destino_entry['adjacents'] = mp.put(
+        destino_entry['adjacents'],
+        origen,
+        {'weight': peso}
+    )
+    
+    # Actualizar contador si es nueva
+    if es_nueva:
+        my_graph['num_edges'] += 1
+    
+    # Actualizar vértices en el grafo
+    my_graph['vertices'] = mp.put(my_graph['vertices'], origen, origen_entry)
+    my_graph['vertices'] = mp.put(my_graph['vertices'], destino, destino_entry)
+    
+    return my_graph
+
+def debug_arista(graph, origen, destino):
+    """Muestra información detallada de una arista"""
+    print(f"\nDebugging arista {origen} ↔ {destino}:")
+    
+    # Verificar existencia de nodos
+    if not gr.contains_vertex(graph, origen):
+        print(f"¡El nodo {origen} no existe!")
+        return
+    if not gr.contains_vertex(graph, destino):
+        print(f"¡El nodo {destino} no existe!")
+        return
+    
+    # Obtener información
+    origen_entry = mp.get(graph['vertices'], origen)
+    destino_entry = mp.get(graph['vertices'], destino)
+    
+    print(f"Peso calculado: {calcular_peso(graph, origen, destino)}")
+    
+    # Verificar arista origen→destino
+    if mp.contains(origen_entry['adjacents'], destino):
+        peso = mp.get(origen_entry['adjacents'], destino)['weight']
+        print(f"Arista {origen}→{destino}: EXISTE (peso: {peso})")
+    else:
+        print(f"Arista {origen}→{destino}: NO EXISTE")
+    
+    # Verificar arista destino→origen
+    if mp.contains(destino_entry['adjacents'], origen):
+        peso = mp.get(destino_entry['adjacents'], origen)['weight']
+        print(f"Arista {destino}→{origen}: EXISTE (peso: {peso})")
+    else:
+        print(f"Arista {destino}→{origen}: NO EXISTE")
+        
+def procesar_historial(my_graph, historial, domiciliario, nuevo_pedido):
+    """
+    Versión actualizada que funciona con la nueva actualizar_arista()
+    """
+    if domiciliario not in historial:
+        historial[domiciliario] = [nuevo_pedido]
+        return my_graph
+    
+    if nuevo_pedido not in historial[domiciliario]:
+        historial[domiciliario].append(nuevo_pedido)
+    
+    if len(historial[domiciliario]) < 2:
+        return my_graph
+    
+    anterior, actual = historial[domiciliario][-2], historial[domiciliario][-1]
+    destino_anterior = anterior[1]
+    destino_actual = actual[1]
+    
+    peso_anterior = calcular_peso(my_graph, anterior[0], anterior[1])
+    peso_actual = calcular_peso(my_graph, actual[0], actual[1])
+    nuevo_peso = (peso_anterior + peso_actual) / 2
+    
+    # Ahora pasamos explícitamente el peso calculado
+    return actualizar_arista(my_graph, destino_anterior, destino_actual, nuevo_peso)
+
+def debug_historial(historial, domiciliario):
+    """Muestra el estado del historial"""
+    print(f"\nHistorial de {domiciliario}:")
+    if domiciliario not in historial:
+        print("  Sin historial registrado")
+        return
+    
+    for i, (rest, dest) in enumerate(historial[domiciliario]):
+        print(f"  {i+1}. Rest: {rest} → Dest: {dest}")
+    
+    if len(historial[domiciliario]) >= 2:
+        print("\nÚltimas conexiones entre destinos:")
+        for i in range(1, len(historial[domiciliario])):
+            prev_dest = historial[domiciliario][i-1][1]
+            curr_dest = historial[domiciliario][i][1]
+            print(f"  {prev_dest} ↔ {curr_dest}")
+
 def load_data(catalog):
     """
     Carga los datos del reto
     """
     tiempo_inicial = get_time()
-    files = data_dir + 'deliverytime_40.csv'
+    files = data_dir + 'deliverytime_min.csv'
     input_file = csv.DictReader(open(files, encoding='utf-8'))
     
     my_graph = catalog['domicilios']
@@ -94,8 +280,11 @@ def load_data(catalog):
     
     historial = {}
     
+
+    
     print("Creando grafo...")
     for row in input_file:
+        print('entrada numero: ' + str(total_domicilios))
         total_domicilios += 1
         
         rest_lat = str(row['Restaurant_latitude'])
@@ -115,113 +304,45 @@ def load_data(catalog):
         time = row['Time_taken(min)']
         total_tiempo.append(int(time))
     
-        #creacion de los dos nodos
-        def crear_nodo(my_graph, origen, destino, id_domiciliario, time, tipo):
-            time_int = int(time)
-            if not gr.contains_vertex(my_graph, origen):
-                # Crear nuevo nodo
-                new_vertex = {
-                    'domiciliarios': [id_domiciliario],
-                    'tiempos': {destino: [time_int]},
-                    'tipo': tipo
-                }
-                gr.insert_vertex(my_graph, origen, new_vertex)
-            else:
-                # Actualizar nodo existente
-                info = gr.get_vertex_information(my_graph, origen)
-                
-                # 1. Actualizar lista de domiciliarios (sin duplicados)
-                if 'domiciliarios' not in info:
-                    info['domiciliarios'] = []
-                if id_domiciliario not in info['domiciliarios']:
-                    info['domiciliarios'].append(id_domiciliario)
-                
-                # 2. Actualizar tiempos (manteniendo historial)
-                if 'tiempos' not in info:
-                    info['tiempos'] = {}
-                if destino not in info['tiempos']:
-                    info['tiempos'][destino] = []
-                info['tiempos'][destino].append(time_int)
-                
-                # 3. Conservar el tipo (por si acaso)
-                info['tipo'] = tipo
-                
-                # Actualizar el vértice en el grafo
-                gr.update_vertex_info(my_graph, origen, info)
-       
+
         #creacion nodo del origen con lista de domiciliarios
         crear_nodo(my_graph, id_rest, id_des, id_domiciliario, time, 'restaurante')
         #creacion nodo del destino con  lista de domiciliarios
         crear_nodo(my_graph, id_des, id_rest, id_domiciliario, time, 'destino')
         
-    
         
-        #CREACION DE ARCOS
-
-        #crear arco entre origen y destino
-        if not gr.has_edge(my_graph, id_rest, id_des):
-            peso = calcular_peso(my_graph, id_rest, id_des)
-            gr.add_edge(my_graph, id_rest, id_des, weight=peso, undirected=True)
-        else: 
-            # actualizar el peso del arco en ambas direcciones
-            nuevo_peso = calcular_peso(my_graph, id_rest, id_des)
-            
-            # actualizar u → v
-            u_entry = mp.get(my_graph['vertices'], id_rest)
-            if u_entry and 'adjacents' in u_entry:
-                # Aquí está el cambio importante - usar mp.put correctamente
-                edge_info = {'to': id_des, 'weight': nuevo_peso}
-                u_entry['adjacents'] = mp.put(u_entry['adjacents'], id_des, edge_info)
-            
-            # actualizar v → u si es no dirigido
-            v_entry = mp.get(my_graph['vertices'], id_des)
-            if v_entry and 'adjacents' in v_entry:
-                edge_info = {'to': id_rest, 'weight': nuevo_peso}
-                v_entry['adjacents'] = mp.put(v_entry['adjacents'], id_rest, edge_info)
-
+        print('NODO ORIGEN RESTAURANTE')
+        print_node_info(my_graph, id_rest)
+        print('')
+        print('')
+        print('')
+        print('NODO DESTINO ')
+        print_node_info(my_graph, id_des)
         
-        # HISTORIAL DE DOMICILIARIOS
-        if id_domiciliario not in historial:
-            historial[id_domiciliario] = []
-
-        # Añadir el nuevo pedido al historial si no está
-        if (id_rest, id_des) not in historial[id_domiciliario]:
-            historial[id_domiciliario].append((id_rest, id_des))
-
-            # Si hay un pedido anterior
-            if len(historial[id_domiciliario]) >= 2:
-                anterior = historial[id_domiciliario][-2]
-                actual = historial[id_domiciliario][-1]
-
-                nodo_anterior = anterior[1]  # destino del pedido anterior
-                nodo_actual = actual[1]      # destino del pedido actual
-
-                # calcular los tiempos actualizados usando la función que ya tienes
-                tiempo_anterior = calcular_peso(my_graph, anterior[0], anterior[1])
-                tiempo_actual = calcular_peso(my_graph, actual[0], actual[1])
-                promedio = (tiempo_anterior + tiempo_actual) / 2
-
-                # crear o actualizar arco entre destinos
-                if not gr.has_edge(my_graph, nodo_anterior, nodo_actual):
-                    gr.add_edge(my_graph, nodo_anterior, nodo_actual, weight=promedio, undirected=True)
-                else:
-                    #si ya existe el arco pero hay que actualizar los pesos
-                    #actualizar en el nodo origen
-                    origen_entry = mp.get(my_graph['vertices'], nodo_anterior)
-
-                    if 'adjacents' in origen_entry and mp.contains(origen_entry['adjacents'], nodo_actual):
-                        # Actualizar el peso del arco sin aumentar el contador de aristas
-                        edge_info = {'to': nodo_actual, 'weight': promedio}
-                        mp.put(origen_entry['adjacents'], nodo_actual, edge_info)
-                        
-
-                    #actualizar en el nodo destino
-                    destino_entry = mp.get(my_graph['vertices'], nodo_actual)
-                    
-                    if 'adjacents' in destino_entry and mp.contains(destino_entry['adjacents'], nodo_anterior):
-                        edge_info = {'to': nodo_anterior, 'weight': promedio}
-                        mp.put(destino_entry['adjacents'], nodo_anterior, edge_info)
-
+        #LLMAR A FUNCION DE CREACION DE ARCOS
+        my_graph = actualizar_arista(my_graph, id_rest, id_des)
+        
+        debug_arista(my_graph, id_rest, id_des)
+        
+        #CREACION DE ARCOS ADICIONALES ENTRE DESTINOS DE DOMICILIARIOS
+        my_graph = procesar_historial(my_graph, historial, id_domiciliario, (id_rest, id_des))
+        
+        print('')
+        print('')
+        print('DEBUG HISTORIAL RAPPI ')
+        debug_historial(historial, id_domiciliario)
+        
+        # Verificar aristas creadas
+        if len(historial.get(id_domiciliario, [])) >= 2:
+            last_two = historial[id_domiciliario][-2:]
+            dest_anterior = last_two[0][1]
+            dest_actual = last_two[1][1]
+            debug_arista(my_graph, dest_anterior, dest_actual)
+        print('')
+        print('')
+        
+       
+       
     print("Grafo creado.")
     
     #RETORNOS AL FINAL
@@ -239,8 +360,6 @@ def load_data(catalog):
     #promedio entrega de todos los domis
     total_tiempo = sum(total_tiempo)/len(total_tiempo)
                     
-        
-
     tiempo_final = get_time()
     delta = delta_time(tiempo_inicial, tiempo_final)
     return catalog, total_domicilios, total_domiciliarios, total_nodos, total_arcos, restaurantes, destinos, total_tiempo, delta
