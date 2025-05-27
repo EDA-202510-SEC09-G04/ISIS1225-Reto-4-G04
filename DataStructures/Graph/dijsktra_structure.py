@@ -49,3 +49,4 @@ def shortest_path(graph, start, end):
         'distance': distances[end],
         'nodes_visited': len([d for d in distances.values() if d != float('inf')])
     }
+    
