@@ -8,22 +8,19 @@ from DataStructures.Map import map_entry as me
 
 
 def find_slot(my_map, key, hash_value):
-   first_avail = None
-   found = False
-   ocupied = False
-   while not found:
-      if is_available(my_map["table"], hash_value):
-            if first_avail is None:
-               first_avail = hash_value
-            entry = al.get_element(my_map["table"], hash_value)
+    first_avail = -1
+    index = hash_value
+    for _ in range(my_map["capacity"]):
+        entry = al.get_element(my_map["table"], index)
+        if me.get_key(entry) is None or me.get_key(entry) == "__EMPTY__":
+            if first_avail == -1:
+                first_avail = index
             if me.get_key(entry) is None:
-               found = True
-      elif default_compare(key, al.get_element(my_map["table"], hash_value)) == 0:
-            first_avail = hash_value
-            found = True
-            ocupied = True
-      hash_value = (hash_value + 1) % my_map["capacity"]
-   return ocupied, first_avail
+                return False, first_avail
+        elif default_compare(key, entry) == 0:
+            return True, index
+        index = (index + 1) % my_map["capacity"]
+    return False, first_avail
 
 def is_available(table, pos):
    entry = al.get_element(table, pos)
@@ -52,8 +49,8 @@ def new_map(num_elements, load_factor, prime=109345121):
         capacity = 3  # fallback de seguridad
 
     # Valores fijos para pruebas
-    scale = 1
-    shift = 0
+    scale = random.randint(1, prime - 1)
+    shift = random.randint(0, prime - 1)
     table = al.new_list()
 
     for _ in range(capacity):
@@ -75,22 +72,15 @@ def new_map(num_elements, load_factor, prime=109345121):
 
 
 def put(my_map, key, value):
-    hash_index = hash_value(my_map, key)
-    ocupied, slot_index = find_slot(my_map, key, hash_index)
+    if my_map["size"] >= my_map["capacity"] * my_map["limit_factor"]:
+        my_map = rehash(my_map)
     
-    elements = my_map['table']['elements']
+    occupied, slot = find_slot(my_map, key, hash_value(my_map, key))
+    entry = {"key": key, "value": value}
     
-    if elements[slot_index]['key'] is not None:
-        elements[slot_index]['value'] = value
-    else:
-        elements[slot_index] = {'key': key, 'value': value}
-        my_map['size'] += 1
-        
-        my_map['current_factor'] = my_map['size'] / my_map['table']['size']
-        
-        if my_map['current_factor'] > my_map['limit_factor']:
-            my_map = rehash(my_map)
-    
+    if not occupied:
+        my_map["size"] += 1
+    al.change_info(my_map["table"], slot, entry)
     return my_map
 
 
