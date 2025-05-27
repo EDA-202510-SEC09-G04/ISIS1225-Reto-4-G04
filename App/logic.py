@@ -65,41 +65,21 @@ def calcular_peso(my_graph, origen, destino):
     return sum(tiempos)/len(tiempos) if tiempos else 0
 
 def contar_tipos_nodos(my_graph):
-    if not isinstance(my_graph, dict) or 'vertices' not in my_graph:
-        raise ValueError("Estructura de grafo inválida")
+    vertices = gr.vertices(my_graph)
+            
+    num_restaurantes = 0
+    num_destinos = 0
+
+    for node_id in vertices['elements']:
+        node_info = gr.get_vertex_information(my_graph, node_id)
     
-    try:
-        vertices = gr.vertices(my_graph)
-        if not vertices:
-            return 0, 0
-            
-        num_restaurantes = 0
-        num_destinos = 0
-        otros_nodos = 0
+        tipo = node_info['info']['tipo']
 
-        for node_id in vertices:
-            node_info = mp.get(my_graph['vertices'], node_id)
-            
-            if not node_info:
-                continue
-                
-            tipo = node_info.get('info', {}).get('tipo') if isinstance(node_info, dict) else None
-            
-            if tipo == 'restaurante':
-                num_restaurantes += 1
-            elif tipo == 'destino':
-                num_destinos += 1
-            else:
-                otros_nodos += 1
-                print(f"Advertencia: Nodo {node_id} tiene tipo desconocido: {tipo}")
-
-        if otros_nodos > 0:
-            print(f"\n[INFO] Se encontraron {otros_nodos} nodos sin tipo definido")
-
-        return num_restaurantes, num_destinos
-
-    except Exception as e:
-        raise RuntimeError(f"Error al contar nodos: {str(e)}")
+        if tipo == 'restaurante':
+            num_restaurantes += 1
+        elif tipo == 'destino':
+            num_destinos += 1
+    return num_restaurantes, num_destinos
     
 def crear_nodo(my_graph, node_id, connected_to, repartidor, tiempo, tipo):
     """Versión corregida sin duplicación de estructura"""
@@ -248,7 +228,7 @@ def load_data(catalog):
     Carga los datos del reto
     """
     tiempo_inicial = get_time()
-    files = data_dir + 'deliverytime_min.csv'
+    files = data_dir + 'deliverytime_40.csv'
     input_file = csv.DictReader(open(files, encoding='utf-8'))
     
     my_graph = catalog['domicilios']
@@ -260,11 +240,8 @@ def load_data(catalog):
     
     historial = {}
     
-
-    
     print("Creando grafo...")
     for row in input_file:
-        print('entrada numero: ' + str(total_domicilios))
         total_domicilios += 1
         
         rest_lat = str(row['Restaurant_latitude'])
@@ -302,7 +279,8 @@ def load_data(catalog):
         #CREACION DE ARCOS ADICIONALES ENTRE DESTINOS DE DOMICILIARIOS
         my_graph = procesar_historial(my_graph, historial, id_domiciliario, (id_rest, id_des))
         
-        print(gr.get_vertex_information(my_graph, id_rest))
+        #DESCOMENTAR PARA DEBUG
+        """ print(gr.get_vertex_information(my_graph, id_rest))
 
         
         print('NODO ORIGEN RESTAURANTE')
@@ -328,7 +306,7 @@ def load_data(catalog):
             debug_arista(my_graph, dest_anterior, dest_actual)
         print('')
         print('')
-        
+         """
        
        
     print("Grafo creado.")
