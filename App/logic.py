@@ -166,6 +166,8 @@ def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
     """
     Retorna el resultado del requerimiento 2
     """
+    
+    tiempo_inicial = get_time()
     my_graph = catalog['domicilios']
     
     sub_grafo= gr.new_graph(1000)
@@ -205,19 +207,45 @@ def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
     
     if len(path) > 1 and path[0] == ubicacion_A:
         
-        return{
-            'camino':path,
-            'num_puntos_intermedios': len(path) -2 if len(path) >= 2 else 0 
-        }
+        ids_domiciliarios = [id_domiciliario]
+        restaurantes = []
 
+        
+        for nodo in path:
+            
+            info = gr.get_vertex_information(my_graph,nodo)
+            
+            if info.get('tipo') == 'restaurante':
+                restaurantes.append(nodo)
+                
+        respuesta = {
+            
+            'cantidad_puntos_geograficos': len(path),
+            'ids_domiciliarios': ids_domiciliarios,
+            'camino': path,
+            'restaurantes_en_camino': restaurantes
+        }       
+        
     else:
         
-        return{
+        respuesta = {
             
+            'cantidad_puntos_geograficos': 0,
+            'ids_domiciliarios': [],
             'camino': [],
-            'num_pumtos_intermedios': None,
+            'restaurantes_en_camino': [],
             'mensaje': 'No existe un camino simple entre las ubicaciones para ese domiciliario.'
         }
+        
+    
+    tiempo_final = get_time()
+    
+    delta_time = tiempo_final - tiempo_inicial
+    
+    respuesta['tiempo_en_ms'] = delta_time
+    
+    return respuesta
+        
         
         
 def req_3(catalog):

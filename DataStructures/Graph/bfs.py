@@ -7,6 +7,7 @@ def bfs(graph, start_node):
         raise ValueError("Nodo inicial no existe")
     
     visited = set()
+    parent = {}
     order = []
     queue = qu.newQueue()
     qu.enqueue(queue, start_node)
@@ -20,7 +21,8 @@ def bfs(graph, start_node):
             # Obtener vecinos
             adj_nodes = gr.adjacents(graph, current)
             for neighbor in adj_nodes:
-                if neighbor not in visited:
+                if neighbor not in visited and neighbor not in parent:
+                    parent[neighbor] = current
                     qu.enqueue(queue, neighbor)
     
-    return order
+    return {'order':order,'parent':parent}
