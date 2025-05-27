@@ -49,8 +49,8 @@ def new_map(num_elements, load_factor, prime=109345121):
         capacity = 3  # fallback de seguridad
 
     # Valores fijos para pruebas
-    scale = 1
-    shift = 0
+    scale = random.randint(1, prime - 1)
+    shift = random.randint(0, prime - 1)
     table = al.new_list()
 
     for _ in range(capacity):

@@ -59,133 +59,113 @@ def format_location(lat, lon):
     return f"{format_coord(lat)}_{format_coord(lon)}"
 
 
-    
 def calcular_peso(my_graph, origen, destino):
-    info = gr.get_vertex_information(my_graph, origen)
-    if 'tiempos' not in info or destino not in info['tiempos']:
-        return 0  # Valor por defecto
-    
-    tiempos = info['tiempos'][destino]
-    if not tiempos:
-        return 0
-        
-    return sum(tiempos) // len(tiempos)
+    nodo_origen = gr.get_vertex_information(my_graph, origen) or {}
+    tiempos = nodo_origen.get('info', {}).get('tiempos', {}).get(destino, [])
+    return sum(tiempos)/len(tiempos) if tiempos else 0
 
-    
 def contar_tipos_nodos(my_graph):
-    vertices = gr.vertices(my_graph)
-    num_restaurantes = 0
-    num_destinos = 0
-
-    for key in vertices:
-        info = mp.get(my_graph['vertices'], key)
-        tipo = info.get('tipo')
-        if tipo == 'restaurante':
-            num_restaurantes += 1
-        elif tipo == 'destino':
-            num_destinos += 1
-
-    return num_restaurantes, num_destinos
-
-
-def crear_nodo(my_graph, node_id, connected_to, delivery_person, time, node_type):
-    """Función independiente para crear/actualizar nodos"""
-    time_int = int(time)
-    node_info = {
-        'domiciliarios': [delivery_person],
-        'tiempos': {connected_to: [time_int]},
-        'tipo': node_type,
-        'adjacents': mp.new_map(num_elements=5, load_factor=0.5)  # ¡Nuevo! Mapa para aristas
-    }
+    if not isinstance(my_graph, dict) or 'vertices' not in my_graph:
+        raise ValueError("Estructura de grafo inválida")
     
+    try:
+        vertices = gr.vertices(my_graph)
+        if not vertices:
+            return 0, 0
+            
+        num_restaurantes = 0
+        num_destinos = 0
+        otros_nodos = 0
+
+        for node_id in vertices:
+            node_info = mp.get(my_graph['vertices'], node_id)
+            
+            if not node_info:
+                continue
+                
+            tipo = node_info.get('info', {}).get('tipo') if isinstance(node_info, dict) else None
+            
+            if tipo == 'restaurante':
+                num_restaurantes += 1
+            elif tipo == 'destino':
+                num_destinos += 1
+            else:
+                otros_nodos += 1
+                print(f"Advertencia: Nodo {node_id} tiene tipo desconocido: {tipo}")
+
+        if otros_nodos > 0:
+            print(f"\n[INFO] Se encontraron {otros_nodos} nodos sin tipo definido")
+
+        return num_restaurantes, num_destinos
+
+    except Exception as e:
+        raise RuntimeError(f"Error al contar nodos: {str(e)}")
+    
+def crear_nodo(my_graph, node_id, connected_to, repartidor, tiempo, tipo):
+    """Versión corregida sin duplicación de estructura"""
+    tiempo_int = int(tiempo)
+    
+    # Obtener nodo existente o crear uno nuevo
     if not gr.contains_vertex(my_graph, node_id):
-        # Insertar nuevo nodo
-        gr.insert_vertex(my_graph, node_id, node_info)
+        
+        info = {
+                'tipo': tipo,
+                'domiciliarios': [repartidor],
+                'tiempos': {connected_to: [tiempo_int]}
+        }
+        
+        return gr.insert_vertex(my_graph, node_id, info)
+        
+        
     else:
-        # Actualizar nodo existente
-        current_info = gr.get_vertex_information(my_graph, node_id)
+        # Obtener nodo existente (sin nivel extra)
+        node = gr.get_vertex_information(my_graph, node_id)
         
-        # Actualizar domiciliarios (sin duplicados)
-        if 'domiciliarios' not in current_info:
-            current_info['domiciliarios'] = []
-        if delivery_person not in current_info['domiciliarios']:
-            current_info['domiciliarios'].append(delivery_person)
+        # Actualizar datos
+        if repartidor not in node['info']['domiciliarios']:
+            node['info']['domiciliarios'].append(repartidor)
+            
+        node['info']['tiempos'].setdefault(connected_to, []).append(tiempo_int)
         
-        # Actualizar tiempos
-        if 'tiempos' not in current_info:
-            current_info['tiempos'] = {}
-        if connected_to not in current_info['tiempos']:
-            current_info['tiempos'][connected_to] = []
-        current_info['tiempos'][connected_to].append(time_int)
-        
-        # Mantener adjacents existentes
-        if 'adjacents' in current_info:
-            node_info['adjacents'] = current_info['adjacents']
-        
-        # Actualizar el nodo
-        gr.update_vertex_info(my_graph, node_id, node_info)
+        return gr.update_vertex_info(my_graph, node_id, node)
     
-    return my_graph
-
-
-# Para verificar un nodo específico:
 def print_node_info(graph, node_id):
-    if gr.contains_vertex(graph, node_id):
-        node = gr.get_vertex_information(graph, node_id)
-        print(f"\nNodo {node_id}:")
-        print(f"Tipo: {node.get('tipo')}")
-        print(f"Domiciliarios: {node.get('domiciliarios', [])}")
-        print(f"Tiempos: {node.get('tiempos', {})}")
-        print(f"Número de aristas: {mp.size(node.get('adjacents', {}))}")
-        print(f"Adjacenttes: {node.get('adjacents', {})} ")
-    else:
-        print(f"\nNodo {node_id} no existe")
-        
+    node = gr.get_vertex_information(graph, node_id) or {}
+    info = node.get('info', {})
+    print(f"\nNodo {node_id}:")
+    print(f"Tipo: {info.get('tipo')}")
+    print(f"Domiciliarios: {info.get('domiciliarios', [])}")
+    print(f"Tiempos: {info.get('tiempos', {})}")
+    
 def actualizar_arista(my_graph, origen, destino, peso=None):
-    """
-    Versión mejorada que acepta peso opcional.
-    Si no se provee peso, lo calcula automáticamente.
-    """
+    """Versión con validación mejorada"""
     # Calcular peso si no se proporciona
     if peso is None:
         peso = calcular_peso(my_graph, origen, destino)
     
-    # Obtener información de los vértices
+    # Validar nodos
+    if not gr.contains_vertex(my_graph, origen) or not gr.contains_vertex(my_graph, destino):
+        raise ValueError("Uno o ambos vértices no existen")
+    
     origen_entry = mp.get(my_graph['vertices'], origen)
     destino_entry = mp.get(my_graph['vertices'], destino)
     
-    if not origen_entry or not destino_entry:
-        raise ValueError("Uno o ambos vértices no existen")
+    # Inicializar adjacents si no existen
+    origen_entry.setdefault('adjacents', mp.new_map(5, 0.5))
+    destino_entry.setdefault('adjacents', mp.new_map(5, 0.5))
     
-    # 1. Actualizar arista origen→destino
-    if 'adjacents' not in origen_entry:
-        origen_entry['adjacents'] = mp.new_map(num_elements=5, load_factor=0.5)
-    
+    # Verificar si es nueva arista
     es_nueva = not mp.contains(origen_entry['adjacents'], destino)
     
-    origen_entry['adjacents'] = mp.put(
-        origen_entry['adjacents'],
-        destino,
-        {'weight': peso}
-    )
+    # Actualizar ambas direcciones (grafo no dirigido)
+    for u, v in [(origen, destino), (destino, origen)]:
+        entry = mp.get(my_graph['vertices'], u)
+        entry['adjacents'] = mp.put(entry['adjacents'], v, {'weight': peso})
+        my_graph['vertices'] = mp.put(my_graph['vertices'], u, entry)
     
-    # 2. Actualizar arista destino→origen (grafo no dirigido)
-    if 'adjacents' not in destino_entry:
-        destino_entry['adjacents'] = mp.new_map(num_elements=5, load_factor=0.5)
-    
-    destino_entry['adjacents'] = mp.put(
-        destino_entry['adjacents'],
-        origen,
-        {'weight': peso}
-    )
-    
-    # Actualizar contador si es nueva
+    # Actualizar contador
     if es_nueva:
         my_graph['num_edges'] += 1
-    
-    # Actualizar vértices en el grafo
-    my_graph['vertices'] = mp.put(my_graph['vertices'], origen, origen_entry)
-    my_graph['vertices'] = mp.put(my_graph['vertices'], destino, destino_entry)
     
     return my_graph
 
@@ -311,6 +291,20 @@ def load_data(catalog):
         crear_nodo(my_graph, id_des, id_rest, id_domiciliario, time, 'destino')
         
         
+        
+        
+        
+        #LLMAR A FUNCION DE CREACION DE ARCOS
+        my_graph = actualizar_arista(my_graph, id_rest, id_des)
+        
+        
+        
+        #CREACION DE ARCOS ADICIONALES ENTRE DESTINOS DE DOMICILIARIOS
+        my_graph = procesar_historial(my_graph, historial, id_domiciliario, (id_rest, id_des))
+        
+        print(gr.get_vertex_information(my_graph, id_rest))
+
+        
         print('NODO ORIGEN RESTAURANTE')
         print_node_info(my_graph, id_rest)
         print('')
@@ -319,13 +313,7 @@ def load_data(catalog):
         print('NODO DESTINO ')
         print_node_info(my_graph, id_des)
         
-        #LLMAR A FUNCION DE CREACION DE ARCOS
-        my_graph = actualizar_arista(my_graph, id_rest, id_des)
-        
         debug_arista(my_graph, id_rest, id_des)
-        
-        #CREACION DE ARCOS ADICIONALES ENTRE DESTINOS DE DOMICILIARIOS
-        my_graph = procesar_historial(my_graph, historial, id_domiciliario, (id_rest, id_des))
         
         print('')
         print('')
@@ -346,14 +334,16 @@ def load_data(catalog):
     print("Grafo creado.")
     
     #RETORNOS AL FINAL
+    
     #domicilios procesados
     #domiciliarios identificados
     total_domiciliarios = len(historial)
     #total nodos
     total_nodos = gr.order(my_graph)
     #total arcos
-    total_arcos = gr.size(my_graph)
+    total_arcos = (gr.size(my_graph))//2
     #total restaurantes
+    
     #total destinos
     restaurantes, destinos = contar_tipos_nodos(my_graph)
     
