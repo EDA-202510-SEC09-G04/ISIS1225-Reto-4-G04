@@ -1,18 +1,26 @@
-from DataStructures.Graph import digraph as G
-from DataStructures.List import single_linked_list as lt
+from DataStructures.Graph import digraph as gr
+from DataStructures.Stack import stack as st
 
-def dfs(graph, start_vertex):
-    visited = {}
-    path = []
-
-    def recursive_dfs(v):
-        visited[v] = True
-        path.append(v)
-        adj = G.adjacents(graph, v)
-        while not lt.is_empty(adj):
-            neighbor = lt.remove_first(adj)
-            if not visited.get(neighbor, False):
-                recursive_dfs(neighbor)
-
-    recursive_dfs(start_vertex)
-    return path
+def dfs(graph, start_node):
+    """DFS adaptado a tu estructura de grafo"""
+    if not gr.contains_vertex(graph, start_node):
+        raise ValueError("Nodo inicial no existe")
+    
+    visited = set()
+    order = []
+    stack = st.newStack()
+    st.push(stack, start_node)
+    
+    while not st.isEmpty(stack):
+        current = st.pop(stack)
+        if current not in visited:
+            visited.add(current)
+            order.append(current)
+            
+            # Obtener vecinos
+            adj_nodes = gr.adjacents(graph, current)
+            for neighbor in adj_nodes:
+                if neighbor not in visited:
+                    st.push(stack, neighbor)
+    
+    return order

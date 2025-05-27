@@ -1,58 +1,51 @@
-from DataStructures.Graph import digraph as G
+from DataStructures.Graph import digraph as gr
 from DataStructures.Map import map_linear_probing as mp
 from DataStructures.Priority_queue import priority_queue as pq
 
 
-def new_dijsktra_structure(source, g_order):
-    """
+def dijkstra(graph, start_node):
+    """Dijkstra adaptado a tu estructura de grafo"""
+    if not gr.contains_vertex(graph, start_node):
+        raise ValueError("Nodo inicial no existe")
+    
+    # Inicialización
+    distances = {node: float('inf') for node in gr.vertices(graph)}
+    distances[start_node] = 0
+    previous = {node: None for node in gr.vertices(graph)}
+    
+    pqueue = pq.newPriorityQueue()
+    pq.enqueue(pqueue, start_node, 0)
+    
+    while not pq.isEmpty(pqueue):
+        current = pq.dequeue(pqueue)
+        
+        # Obtener aristas del nodo actual
+        edges = gr.edges_vertex(graph, current)
+        for _, neighbor, weight in edges:
+            alt = distances[current] + weight
+            if alt < distances[neighbor]:
+                distances[neighbor] = alt
+                previous[neighbor] = current
+                pq.enqueue(pqueue, neighbor, alt)
+    
+    return distances, previous
 
-    Crea una estructura de busqueda usada en el algoritmo **dijsktra**.
 
-    Se crea una estructura de busqueda con los siguientes atributos:
-
-    - **source**: Vertice de origen. Se inicializa en ``source``
-    - **visited**: Mapa con los vertices visitados. Se inicializa en ``None``
-    - **pq**: Cola indexada con los vertices visitados. Se inicializa en ``None``
-
-    :returns: Estructura de busqueda
-    :rtype: dijsktra_search
-    """
-    structure = {
-        "source": source,
-        "visited": mp.new_map(
-            g_order, 0.5),
-        "pq": pq.new_heap()}
-    return structure
-
-def dijkstra(graph, source):
-    order = G.num_vertices(graph)
-    structure = new_dijsktra_structure(source, order)
-
-    dist = {}
-    prev = {}
-
-    # Inicializar estructuras
-    for vertex in G.vertices(graph):
-        dist[vertex] = float('inf')
-        prev[vertex] = None
-        mp.put(structure["visited"], vertex, False)
-
-    dist[source] = 0
-    pq.insert(structure["pq"], source, 0)
-
-    while not pq.is_empty(structure["pq"]):
-        current = pq.del_min(structure["pq"])[0]  # devuelve (vertex, key)
-        mp.put(structure["visited"], current, True)
-
-        neighbors = G.adjacents(graph, current)
-        while not lt.is_empty(neighbors):
-            neighbor = lt.remove_first(neighbors)
-            if not mp.get(structure["visited"], neighbor)['value']:
-                weight = G.get_edge_weight(graph, current, neighbor)
-                alt = dist[current] + weight
-                if alt < dist[neighbor]:
-                    dist[neighbor] = alt
-                    prev[neighbor] = current
-                    pq.insert(structure["pq"], neighbor, alt)
-
-    return dist, prev
+def shortest_path(graph, start, end):
+    """Obtiene el camino más corto entre dos nodos"""
+    distances, previous = dijkstra(graph, start)
+    path = []
+    current = end
+    
+    if previous[current] is None and current != start:
+        return None  # No hay camino
+    
+    while current is not None:
+        path.insert(0, current)
+        current = previous[current]
+    
+    return {
+        'path': path,
+        'distance': distances[end],
+        'nodes_visited': len([d for d in distances.values() if d != float('inf')])
+    }

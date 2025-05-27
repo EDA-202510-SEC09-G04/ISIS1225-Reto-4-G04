@@ -1,17 +1,6 @@
-import time
-import os
-import csv
-import sys
-import pprint as pprint
-from DataStructures.Map import map_separate_chaining as msc
-from DataStructures.List import array_list as lt
-from DataStructures.List import single_linked_list as slist
-from DataStructures.Map import map_entry as me
-from DataStructures.Map import map_functions as mf
 from DataStructures.Utils import error as error
 from DataStructures.Graph import digraph as gr
 from DataStructures.Map import map_linear_probing as mp
-
 
 
 def format_coord(coord):

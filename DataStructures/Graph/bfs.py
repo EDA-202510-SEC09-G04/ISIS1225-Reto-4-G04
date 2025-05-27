@@ -1,22 +1,26 @@
-from DataStructures.Graph import digraph as G
-from DataStructures.List import single_linked_list as lt
+from DataStructures.Queue import queue as qu
+from DataStructures.Graph import digraph as gr
 
-def bfs(graph, start_vertex):
-    from collections import deque
-    visited = {}
-    queue = deque()
-    path = []
 
-    visited[start_vertex] = True
-    queue.append(start_vertex)
-
-    while queue:
-        v = queue.popleft()
-        path.append(v)
-        adj = G.adjacents(graph, v)
-        while not lt.is_empty(adj):
-            neighbor = lt.remove_first(adj)
-            if not visited.get(neighbor, False):
-                visited[neighbor] = True
-                queue.append(neighbor)
-    return path
+def bfs(graph, start_node):
+    if not gr.contains_vertex(graph, start_node):
+        raise ValueError("Nodo inicial no existe")
+    
+    visited = set()
+    order = []
+    queue = qu.newQueue()
+    qu.enqueue(queue, start_node)
+    
+    while not qu.isEmpty(queue):
+        current = qu.dequeue(queue)
+        if current not in visited:
+            visited.add(current)
+            order.append(current)
+            
+            # Obtener vecinos
+            adj_nodes = gr.adjacents(graph, current)
+            for neighbor in adj_nodes:
+                if neighbor not in visited:
+                    qu.enqueue(queue, neighbor)
+    
+    return order
