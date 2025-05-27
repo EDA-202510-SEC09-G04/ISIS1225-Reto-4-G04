@@ -9,20 +9,24 @@ def bfs(graph, start_node):
     visited = set()
     parent = {}
     order = []
-    queue = qu.newQueue()
+    queue = qu.new_queue()
     qu.enqueue(queue, start_node)
     
-    while not qu.isEmpty(queue):
+    
+    while not qu.is_empty(queue):
         current = qu.dequeue(queue)
         if current not in visited:
             visited.add(current)
             order.append(current)
             
             # Obtener vecinos
-            adj_nodes = gr.adjacents(graph, current)
-            for neighbor in adj_nodes:
-                if neighbor not in visited and neighbor not in parent:
-                    parent[neighbor] = current
-                    qu.enqueue(queue, neighbor)
+            if current is not None:
+              adj_nodes = gr.adjacents(graph, current)
+               
+            for neighbor in adj_nodes['elements']:
+                    
+                   if neighbor not in visited and neighbor not in parent and neighbor is not None:
+                        parent[neighbor] = current
+                        qu.enqueue(queue, neighbor)
     
     return {'order':order,'parent':parent}

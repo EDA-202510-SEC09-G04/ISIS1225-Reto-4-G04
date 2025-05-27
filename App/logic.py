@@ -22,6 +22,21 @@ sys.setrecursionlimit(defualt_limit*10)
 csv.field_size_limit(2147483647)
 
 
+
+def get_time():
+    """
+    devuelve el instante tiempo de procesamiento en milisegundos
+    """
+    return float(time.perf_counter()*1000)
+
+
+def delta_time(start, end):
+    """
+    devuelve la diferencia entre tiempos de procesamiento muestreados
+    """
+    elapsed = float(end - start)
+    return elapsed
+
 def new_logic():
     """
     Crea el catalogo para almacenar las estructuras de datos
@@ -172,39 +187,53 @@ def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
     
     sub_grafo= gr.new_graph(1000)
     vertices = gr.vertices(my_graph)
-    
-    for v in vertices:
+   # print(vertices)
+    for v in vertices['elements']:
         
-        info = gr.get_vertex_information(my_graph,v)
-        if 'domiciliarios' in info and id_domiciliario in  info['domiciliarios']:
+         info = gr.get_vertex_information(my_graph,v)
+         if 'domiciliarios' in info['info'] and id_domiciliario in  info['info']['domiciliarios']:
             gr.insert_vertex(sub_grafo,v,info)
             
-    for v in gr.vertices(sub_grafo):
+    for v in gr.vertices(sub_grafo)['elements']:
+       
+         info = gr.get_vertex_information(my_graph,v)
         
-        info = gr.get_vertex_information(my_graph,v)
         
-        if 'adjacents' in info:
+         
+         if 'adjacents' in info:
             adjacents = info['adjacents']
-            for w in mp.keys(adjacents):
-                edge = mp.get(adjacents,w)
+          
+            
+            for w in mp.key_set(adjacents)['elements']:
                 
                 destino_info = gr.get_vertex_information(my_graph,w)
-                if id_domiciliario in destino_info.get('domiciliarios',[]):
-                    gr.add_edge(sub_grafo,v,w,weight=edge['weight'],undirected=True)
+                
+                if id_domiciliario in destino_info['info']['domiciliarios']:
+                    edge = mp.get(adjacents, w)
+                    
+                    if  v is not None and w is not None and gr.contains_vertex(sub_grafo, v) and gr.contains_vertex(sub_grafo, w):
+                         gr.add_edge(sub_grafo, v, w, weight=edge['weight'], undirected=True)
+                    
                     
     # Recorrido BFS para encontrar el camino más corto
     
+    
+    
+    
     bfs_result = bfs.bfs(sub_grafo,ubicacion_A)
     parent = bfs_result['parent']
+    
     
     path = []
     current = ubicacion_B
     while current is not None and current in parent:
         path.append(current)
         current = parent[current]
+       
         
     path.reverse()
     
+    print(path)
     if len(path) > 1 and path[0] == ubicacion_A:
         
         ids_domiciliarios = [id_domiciliario]
@@ -246,7 +275,23 @@ def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
     
     return respuesta
         
-        
+
+
+catalogo = new_logic()
+
+load_data(catalogo)
+
+
+print(req_2(
+    catalogo,
+    'SURRES010DEL02',
+    ut.format_location('21.160522','72.771477'),  # Restaurante (origen)
+    ut.format_location('20.781903','75.865967')   # Destino
+))
+
+
+#print(req_2(catalogo,'INDORES16DEL02',ut.format_location('22.744648','75.894377'),ut.format_location('22.310237','73.158921')))
+
         
 def req_3(catalog):
     """
