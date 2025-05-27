@@ -216,13 +216,8 @@ def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
                     
                     
     # Recorrido BFS para encontrar el camino más corto
-    
-    
-    
-    
     bfs_result = bfs.bfs(sub_grafo,ubicacion_A)
     parent = bfs_result['parent']
-    
     
     path = []
     current = ubicacion_B
@@ -282,23 +277,72 @@ catalogo = new_logic()
 load_data(catalogo)
 
 
-print(req_2(
-    catalogo,
-    'SURRES010DEL02',
-    ut.format_location('21.160522','72.771477'),  # Restaurante (origen)
-    ut.format_location('20.781903','75.865967')   # Destino
-))
+
 
 
 #print(req_2(catalogo,'INDORES16DEL02',ut.format_location('22.744648','75.894377'),ut.format_location('22.310237','73.158921')))
 
         
-def req_3(catalog):
+def req_3(catalog, punto_geografico):
     """
-    Retorna el resultado del requerimiento 3
+    Identifica el domiciliario con mayor cantidad de pedidos para un punto geográfico específico.
+    Retorna el tiempo de ejecución, el domiciliario más popular, la cantidad de pedidos y el tipo de vehículo más usado por ese domiciliario en ese punto.
     """
-    # TODO: Modificar el requerimiento 3
-    pass
+    tiempo_inicial = get_time()
+    my_graph = catalog['domicilios']
+
+    if not gr.contains_vertex(my_graph, punto_geografico):
+        return {
+            'mensaje': 'El punto geográfico no existe en el grafo.',
+            'tiempo_en_ms': 0
+        }
+
+    info = gr.get_vertex_information(my_graph, punto_geografico)
+    # info['info'] si tu estructura es anidada
+    if 'info' in info:
+        info = info['info']
+
+    # Contar pedidos por domiciliario y tipos de vehículo
+    contador_domi = {}
+    vehiculos_domi = {}
+
+    if 'domiciliarios' in info:
+        for domi in info['domiciliarios']:
+            if domi not in contador_domi:
+                contador_domi[domi] = 0
+                vehiculos_domi[domi] = {}
+            contador_domi[domi] += 1
+            # Contar tipo de vehículo si está disponible
+            if 'vehiculos' in info:
+                vehiculo = info['vehiculos'].get(domi)
+                if vehiculo:
+                    vehiculos_domi[domi][vehiculo] = vehiculos_domi[domi].get(vehiculo, 0) + 1
+
+    if not contador_domi:
+        return {
+            'mensaje': 'No hay pedidos en ese punto geográfico.',
+            'tiempo_en_ms': delta_time(tiempo_inicial, get_time())
+        }
+
+    # Encontrar domiciliario con más pedidos
+    domi_popular = max(contador_domi, key=contador_domi.get)
+    cantidad_pedidos = contador_domi[domi_popular]
+
+    # Tipo de vehículo más usado por ese domiciliario
+    tipo_vehiculo = None
+    if domi_popular in vehiculos_domi and vehiculos_domi[domi_popular]:
+        tipo_vehiculo = max(vehiculos_domi[domi_popular], key=vehiculos_domi[domi_popular].get)
+
+    tiempo_final = get_time()
+    return {
+        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
+        'domiciliario_mas_popular': domi_popular,
+        'cantidad_pedidos': cantidad_pedidos,
+        'vehiculo_mas_usado': tipo_vehiculo
+    }
+
+
+print(req_3(catalogo,'23.359407_85.325055'))
 
 
 def req_4(catalog):
