@@ -342,15 +342,60 @@ def req_3(catalog, punto_geografico):
     }
 
 
-print(req_3(catalogo,'23.359407_85.325055'))
+print(req_3(catalogo,'23.3646_77.5316'))
 
 
-def req_4(catalog):
+#print(gr.vertices(catalogo['domicilios']))
+
+
+def req_4(catalog, ubicacion_A, ubicacion_B):
     """
-    Retorna el resultado del requerimiento 4
+    Identifica los domiciliarios en común entre los puntos geográficos A y B
+    en el camino simple con menos puntos intermedios.
     """
-    # TODO: Modificar el requerimiento 4
-    pass
+    tiempo_inicial = get_time()
+    my_graph = catalog['domicilios']
+
+    # BFS para encontrar el camino más corto (menos puntos intermedios)
+    bfs_result = bfs.bfs(my_graph, ubicacion_A)
+    parent = bfs_result['parent']
+
+    # Reconstruir el camino desde B hasta A
+    path = []
+    current = ubicacion_B
+    while current is not None and current in parent:
+        path.append(current)
+        current = parent[current]
+    path.reverse()
+
+    # Si no hay camino, retornar mensaje
+    if len(path) <= 1 or path[0] != ubicacion_A:
+        tiempo_final = get_time()
+        return {
+            'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
+            'camino': [],
+            'domiciliarios_en_comun': [],
+            'mensaje': 'No existe un camino simple entre las ubicaciones.'
+        }
+
+    # Encontrar domiciliarios en común en todos los nodos del camino
+    domiciliarios_comunes = None
+    for nodo in path:
+        info = gr.get_vertex_information(my_graph, nodo)
+        if 'info' in info:
+            info = info['info']
+        domis = set(info.get('domiciliarios', []))
+        if domiciliarios_comunes is None:
+            domiciliarios_comunes = domis
+        else:
+            domiciliarios_comunes = domiciliarios_comunes.intersection(domis)
+
+    tiempo_final = get_time()
+    return {
+        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
+        'camino': path,
+        'domiciliarios_en_comun': list(domiciliarios_comunes) if domiciliarios_comunes else []
+    }
 
 
 def req_5(catalog):
