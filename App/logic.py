@@ -53,7 +53,7 @@ def load_data(catalog):
     Carga los datos del reto
     """
     tiempo_inicial = get_time()
-    files = data_dir + 'deliverytime_20.csv'
+    files = data_dir + 'deliverytime_100.csv'
     input_file = csv.DictReader(open(files, encoding='utf-8'))
     
     my_graph = catalog['domicilios']
@@ -144,7 +144,7 @@ def load_data(catalog):
     #total nodos
     total_nodos = gr.order(my_graph)
     #total arcos
-    total_arcos = (gr.size(my_graph))//2
+    total_arcos = (gr.size(my_graph))
     #total restaurantes
     
     #total destinos
@@ -326,9 +326,9 @@ def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
         
 
 
-catalogo = new_logic()
+#catalogo = new_logic()
 
-load_data(catalogo)
+#load_data(catalogo)
 
 
 
@@ -396,7 +396,7 @@ def req_3(catalog, punto_geografico):
     }
 
 
-print(req_3(catalogo,'23.3646_77.5316'))
+#print(req_3(catalogo,'23.3646_77.5316'))
 
 
 #print(gr.vertices(catalogo['domicilios']))

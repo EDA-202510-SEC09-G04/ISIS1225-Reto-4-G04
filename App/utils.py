@@ -89,36 +89,21 @@ def print_node_info(graph, node_id):
     print(f"Tiempos: {info.get('tiempos', {})}")
     
     
-
 def actualizar_arista(my_graph, origen, destino, peso=None):
-    """Versión con validación mejorada"""
-    # Calcular peso si no se proporciona
+    """Versión adaptada a tu estructura de grafo"""
     if peso is None:
         peso = calcular_peso(my_graph, origen, destino)
     
-    # Validar nodos
+    # Verificar si los vértices existen
     if not gr.contains_vertex(my_graph, origen) or not gr.contains_vertex(my_graph, destino):
         raise ValueError("Uno o ambos vértices no existen")
     
-    origen_entry = mp.get(my_graph['vertices'], origen)
-    destino_entry = mp.get(my_graph['vertices'], destino)
+    # Verificar si la arista ya existe (en cualquier dirección para grafo no dirigido)
+    if gr.has_edge(my_graph, origen, destino) or gr.has_edge(my_graph, destino, origen):
+        return my_graph  # No hacer nada si ya existe
     
-    # Inicializar adjacents si no existen
-    origen_entry.setdefault('adjacents', mp.new_map(5, 0.5))
-    destino_entry.setdefault('adjacents', mp.new_map(5, 0.5))
-    
-    # Verificar si es nueva arista
-    es_nueva = not mp.contains(origen_entry['adjacents'], destino)
-    
-    # Actualizar ambas direcciones (grafo no dirigido)
-    for u, v in [(origen, destino), (destino, origen)]:
-        entry = mp.get(my_graph['vertices'], u)
-        entry['adjacents'] = mp.put(entry['adjacents'], v, {'weight': peso})
-        my_graph['vertices'] = mp.put(my_graph['vertices'], u, entry)
-    
-    # Actualizar contador
-    if es_nueva:
-        my_graph['num_edges'] += 1
+    # Agregar arista (solo una vez para grafo no dirigido)
+    gr.add_edge(my_graph, origen, destino, peso, undirected=True)
     
     return my_graph
 
@@ -154,34 +139,22 @@ def debug_arista(graph, origen, destino):
     else:
         print(f"Arista {destino}→{origen}: NO EXISTE")
 
-        
-
 def procesar_historial(my_graph, historial, domiciliario, nuevo_pedido):
-    """
-    Versión actualizada que funciona con la nueva actualizar_arista()
-    """
     if domiciliario not in historial:
-        historial[domiciliario] = [nuevo_pedido]
-        return my_graph
+        historial[domiciliario] = []
     
-    if nuevo_pedido not in historial[domiciliario]:
-        historial[domiciliario].append(nuevo_pedido)
+    historial[domiciliario].append(nuevo_pedido)
     
-    if len(historial[domiciliario]) < 2:
-        return my_graph
+    # Solo crear arista si hay ≥2 pedidos y los destinos son diferentes
+    if len(historial[domiciliario]) >= 2:
+        destino_anterior = historial[domiciliario][-2][1]
+        destino_actual = historial[domiciliario][-1][1]
+        
+        if destino_anterior != destino_actual:  # Evitar autoconexiones
+            peso = calcular_peso(my_graph, destino_anterior, destino_actual)
+            actualizar_arista(my_graph, destino_anterior, destino_actual, peso)
     
-    anterior, actual = historial[domiciliario][-2], historial[domiciliario][-1]
-    destino_anterior = anterior[1]
-    destino_actual = actual[1]
-    
-    peso_anterior = calcular_peso(my_graph, anterior[0], anterior[1])
-    peso_actual = calcular_peso(my_graph, actual[0], actual[1])
-    nuevo_peso = (peso_anterior + peso_actual) / 2
-    
-    # Ahora pasamos explícitamente el peso calculado
-    return actualizar_arista(my_graph, destino_anterior, destino_actual, nuevo_peso)
-
-
+    return my_graph
 
 def debug_historial(historial, domiciliario):
     """Muestra el estado del historial"""

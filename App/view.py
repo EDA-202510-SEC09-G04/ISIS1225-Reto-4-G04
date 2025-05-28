@@ -28,17 +28,8 @@ def load_data(control):
     Carga los datos
     """
     catalog, total_domicilios, total_domiciliarios, total_nodos, total_arcos, restaurantes, destinos, total_tiempo, delta = logic.load_data(control)
-    print("🗂️ Catálogo cargado:", "Sí" if catalog else "No")
-    print("📦 Total de domicilios:", total_domicilios)
-    print("🚴‍♂️ Total de domiciliarios:", total_domiciliarios)
-    print("🧩 Total de nodos:", total_nodos)
-    print("🔗 Total de arcos:", total_arcos)
-    print("🍽️ Cantidad de restaurantes:", restaurantes)
-    print("📍 Cantidad de destinos:", destinos)
-    print("⏱️ Tiempo total de procesamiento:", total_tiempo, "segundos")
-    print("⏳ Delta de tiempo (carga):", delta, "milisegundos")
 
-    return catalog
+    return catalog, total_domicilios, total_domiciliarios, total_nodos, total_arcos, restaurantes, destinos, total_tiempo, delta 
 
 def print_data(control, id):
     """
@@ -126,7 +117,16 @@ def main():
         inputs = input('Seleccione una opción para continuar\n')
         if int(inputs) == 1:
             print("Cargando información de los archivos ....\n")
-            data = load_data(control)
+            catalog, total_domicilios, total_domiciliarios, total_nodos, total_arcos, restaurantes, destinos, total_tiempo, delta = load_data(control)
+            print("🗂️ Catálogo cargado:", "Sí" if catalog else "No")
+            print("📦  Total de domicilios:", total_domicilios)
+            print("🚴‍♂️  Total de domiciliarios:", total_domiciliarios)
+            print("🧩  Total de nodos:", total_nodos)
+            print("🔗  Total de arcos:", total_arcos)
+            print("🍽️  Cantidad de restaurantes:", restaurantes)
+            print("📍  Cantidad de destinos:", destinos)
+            print("⏱️  Tiempo total de procesamiento:", total_tiempo, "segundos")
+            print("⏳  Delta de tiempo (carga):", delta, "milisegundos")
         elif int(inputs) == 2:
             print_req_1(control)
 
