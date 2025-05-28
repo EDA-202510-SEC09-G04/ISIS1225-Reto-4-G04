@@ -53,22 +53,21 @@ def remove_vertex(my_graph, key_u):
     return my_graph
 
 def add_edge(my_graph, u, v, weight, undirected=False):
-    # Obtener vértices usando map.get
+    # Verificar si la arista ya existe
+    if has_edge(my_graph, u, v) or (undirected and has_edge(my_graph, v, u)):
+        return my_graph  # No hacer nada si ya existe
+
+    # Añadir arista u→v
     u_entry = mp.get(my_graph['vertices'], u)
-    v_entry = mp.get(my_graph['vertices'], v)
-    
-    if not u_entry or not v_entry:
-        raise ValueError("Vértices no encontrados")
-    
-    # Añadir arista u->v
     u_entry['adjacents'] = mp.put(u_entry['adjacents'], v, weight)
-    my_graph['num_edges'] += 1
     
-    # Si es no dirigido, añadir v->u
+    # Si es no dirigido, añadir v→u (pero no contar como nueva arista)
     if undirected:
+        v_entry = mp.get(my_graph['vertices'], v)
         v_entry['adjacents'] = mp.put(v_entry['adjacents'], u, weight)
-        my_graph['num_edges'] += 1
     
+    # Contar como 1 arista siempre (incluso para no dirigido)
+    my_graph['num_edges'] += 1
     return my_graph
 
 def insert_directed_edge(my_graph, key_u, key_v, weight):
@@ -121,7 +120,7 @@ def get_edge(my_graph, key_u, key_v):
         return None
         
     edge = mp.get(u_entry['adjacents'], key_v)
-    return edge['weight'] if edge else None
+    return edge
 
 def get_vertex_information(my_graph, key_u):
     if not contains_vertex(my_graph, key_u):
