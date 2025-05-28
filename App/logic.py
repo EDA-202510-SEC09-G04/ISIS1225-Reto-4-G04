@@ -13,6 +13,10 @@ from DataStructures.Graph import digraph as gr
 from DataStructures.Graph import bfs as bfs
 from DataStructures.Map import map_linear_probing as mp
 from App import utils as ut
+from DataStructures.Graph import dijsktra_structure as dj
+from DataStructures.Graph import prim_structure as pr
+from DataStructures.Graph import edge as ed
+
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 data_dir = os.path.dirname(os.path.realpath('__file__')) + '/Data/'
@@ -541,20 +545,91 @@ def req_5(catalog, ubicacion_A, N):
     }
 
 
-def req_6(catalog):
+def req_6(catalog,origen_id):
     """
     Retorna el resultado del requerimiento 6
     """
     # TODO: Modificar el requerimiento 6
-    pass
+    start = time.perf_counter()
+    graph = catalog['domicilios']
+
+    # Ejecutar Dijkstra desde el nodo origen
+    search = dj.Dijkstra(graph, origen_id)
+
+    alcanzables = []
+    caminos = {}
+    max_tiempo = 0
+    nodo_mas_lejano = None
+
+    for vertice in graph['vertices']['elements']:
+        if vertice['key'] is not None:
+            destino = vertice['key']
+            if dj.hasPathTo(search, destino):
+                alcanzables.append(destino)
+                tiempo = dj.distTo(search, destino)
+                caminos[destino] = tiempo
+                if tiempo > max_tiempo:
+                    max_tiempo = tiempo
+                    nodo_mas_lejano = destino
+
+    alcanzables.sort()
+    camino_mas_largo = dj.pathTo(search, nodo_mas_lejano)
+
+    end = time.perf_counter()
+    tiempo_ms = round((end - start) * 1000, 3)
+
+    return {
+        "tiempo_ms": tiempo_ms,
+        "cantidad_ubicaciones": len(alcanzables),
+        "ubicaciones": alcanzables,
+        "camino_mas_costoso": {
+            "destino": nodo_mas_lejano,
+            "tiempo_total": max_tiempo,
+            "secuencia": camino_mas_largo
+        }
+    }
 
 
-def req_7(catalog):
+def req_7(catalog, origen_id, domiciliario_id):
     """
     Retorna el resultado del requerimiento 7
     """
     # TODO: Modificar el requerimiento 7
-    pass
+    start = time.perf_counter()
+    original_graph = catalog['domicilios']
+
+    # Crear subgrafo filtrado
+    subgraph = gr.newGraph(directed=False)
+    for vertex in original_graph['vertices']['elements']:
+        if vertex['key'] is not None:
+            gr.insertVertex(subgraph, vertex['key'])
+
+    for v in original_graph['vertices']['elements']:
+        if v['key'] is not None:
+            v_id = v['key']
+            adj = gr.adjacents(original_graph, v_id)
+            if adj:
+                for a_id in adj:
+                    arco = gr.getEdge(original_graph, v_id, a_id)
+                    if arco and domiciliario_id in original_graph['vertices']['elements'][gr.getVertexIndex(original_graph, v_id)]['value']['info']['domiciliarios']:
+                        gr.addEdge(subgraph, v_id, a_id, ed.weightEdge(arco))
+
+    # Ejecutar Prim sobre el subgrafo
+    mst = pr.Prim(subgraph, origen_id)
+
+    ubicaciones = list(mst['visited'].keys())
+    ubicaciones.sort()
+    total_tiempo = sum(mst['distTo'].values())
+
+    end = time.perf_counter()
+    tiempo_ms = round((end - start) * 1000, 3)
+
+    return {
+        "tiempo_ms": tiempo_ms,
+        "cantidad_ubicaciones": len(ubicaciones),
+        "ubicaciones": ubicaciones,
+        "tiempo_total": total_tiempo
+    }
 
 
 def req_8(catalog):
