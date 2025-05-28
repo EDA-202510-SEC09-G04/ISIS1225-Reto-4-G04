@@ -545,90 +545,103 @@ def req_5(catalog, ubicacion_A, N):
     }
 
 
-def req_6(catalog,origen_id):
+def req_6(catalog, ubicacion_A):
     """
-    Retorna el resultado del requerimiento 6
+    Identifica los caminos de costo mínimo en tiempo desde una ubicación geográfica específica.
+    Retorna el tiempo de ejecución, cantidad de ubicaciones alcanzables, sus IDs ordenados, 
+    y el camino de mayor tiempo mínimo desde el origen.
     """
-    # TODO: Modificar el requerimiento 6
-    start = time.perf_counter()
-    graph = catalog['domicilios']
+    tiempo_inicial = get_time()
+    my_graph = catalog['domicilios']
 
-    # Ejecutar Dijkstra desde el nodo origen
-    search = dj.Dijkstra(graph, origen_id)
+    # Ejecutar Dijkstra desde el nodo de inicio usando el peso 'weight' (tiempo)
+    dijkstra_result = ut.dijkstra(my_graph, ubicacion_A)  # Debes tener una función dijkstra en utils
 
-    alcanzables = []
-    caminos = {}
-    max_tiempo = 0
-    nodo_mas_lejano = None
+    # Extraer distancias y padres
+    dist_to = dijkstra_result['dist_to']  # {nodo: tiempo_total}
+    parent = dijkstra_result['parent']    # {nodo: predecesor}
 
-    for vertice in graph['vertices']['elements']:
-        if vertice['key'] is not None:
-            destino = vertice['key']
-            if dj.hasPathTo(search, destino):
-                alcanzables.append(destino)
-                tiempo = dj.distTo(search, destino)
-                caminos[destino] = tiempo
-                if tiempo > max_tiempo:
-                    max_tiempo = tiempo
-                    nodo_mas_lejano = destino
+    # Filtrar solo los nodos alcanzables (distancia < infinito)
+    alcanzables = [nodo for nodo in dist_to if dist_to[nodo] < float('inf')]
+    alcanzables.sort()  # Orden alfabético
 
-    alcanzables.sort()
-    camino_mas_largo = dj.pathTo(search, nodo_mas_lejano)
-
-    end = time.perf_counter()
-    tiempo_ms = round((end - start) * 1000, 3)
-
-    return {
-        "tiempo_ms": tiempo_ms,
-        "cantidad_ubicaciones": len(alcanzables),
-        "ubicaciones": alcanzables,
-        "camino_mas_costoso": {
-            "destino": nodo_mas_lejano,
-            "tiempo_total": max_tiempo,
-            "secuencia": camino_mas_largo
+    # Encontrar el nodo alcanzable con mayor tiempo mínimo
+    if not alcanzables:
+        tiempo_final = get_time()
+        return {
+            'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
+            'cantidad_ubicaciones': 0,
+            'ubicaciones_alcanzables': [],
+            'camino_mayor_tiempo': [],
+            'tiempo_total': 0,
+            'mensaje': 'No hay ubicaciones alcanzables desde el punto dado.'
         }
+
+    nodo_mayor_tiempo = max(alcanzables, key=lambda n: dist_to[n])
+    tiempo_mayor = dist_to[nodo_mayor_tiempo]
+
+    # Reconstruir el camino de costo mínimo a ese nodo
+    camino = []
+    current = nodo_mayor_tiempo
+    while current is not None and current in parent:
+        camino.append(current)
+        current = parent[current]
+    camino.reverse()
+
+    tiempo_final = get_time()
+    return {
+        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
+        'cantidad_ubicaciones': len(alcanzables),
+        'ubicaciones_alcanzables': alcanzables,
+        'camino_mayor_tiempo': camino,
+        'tiempo_total': tiempo_mayor
     }
 
 
-def req_7(catalog, origen_id, domiciliario_id):
+def req_7(catalog, ubicacion_A, id_domiciliario):
     """
-    Retorna el resultado del requerimiento 7
+    Establece una subred (Árbol de Recubrimiento de Costo Mínimo en Tiempo) para un domiciliario particular desde una ubicación inicial.
+    Retorna el tiempo de ejecución, cantidad de ubicaciones, IDs ordenados y el costo total en tiempo del árbol.
     """
-    # TODO: Modificar el requerimiento 7
-    start = time.perf_counter()
-    original_graph = catalog['domicilios']
+    tiempo_inicial = get_time()
+    my_graph = catalog['domicilios']
 
-    # Crear subgrafo filtrado
-    subgraph = gr.newGraph(directed=False)
-    for vertex in original_graph['vertices']['elements']:
-        if vertex['key'] is not None:
-            gr.insertVertex(subgraph, vertex['key'])
+    # 1. Construir subgrafo solo con los nodos y aristas del domiciliario
+    sub_grafo = gr.new_graph(1000)
+    vertices = gr.vertices(my_graph)
+    for v in vertices['elements']:
+        info = gr.get_vertex_information(my_graph, v)
+        if 'domiciliarios' in info['info'] and id_domiciliario in info['info']['domiciliarios']:
+            gr.insert_vertex(sub_grafo, v, info)
+    for v in gr.vertices(sub_grafo)['elements']:
+        info = gr.get_vertex_information(my_graph, v)
+        if 'adjacents' in info:
+            adjacents = info['adjacents']
+            for w in mp.key_set(adjacents)['elements']:
+                if gr.contains_vertex(sub_grafo, w):
+                    edge = mp.get(adjacents, w)
+                    gr.add_edge(sub_grafo, v, w, weight=edge['weight'], undirected=True)
 
-    for v in original_graph['vertices']['elements']:
-        if v['key'] is not None:
-            v_id = v['key']
-            adj = gr.adjacents(original_graph, v_id)
-            if adj:
-                for a_id in adj:
-                    arco = gr.getEdge(original_graph, v_id, a_id)
-                    if arco and domiciliario_id in original_graph['vertices']['elements'][gr.getVertexIndex(original_graph, v_id)]['value']['info']['domiciliarios']:
-                        gr.addEdge(subgraph, v_id, a_id, ed.weightEdge(arco))
+    # 2. Ejecutar Prim desde ubicacion_A en el subgrafo
+    prim_result = ut.prim(sub_grafo, ubicacion_A)  # Debes tener una función prim en utils
 
-    # Ejecutar Prim sobre el subgrafo
-    mst = pr.Prim(subgraph, origen_id)
+    # 3. Extraer los nodos y el costo total del árbol
+    mst_edges = prim_result['mst_edges']  # Lista de aristas [(u, v, peso)]
+    mst_vertices = set()
+    total_tiempo = 0
+    for u, v, peso in mst_edges:
+        mst_vertices.add(u)
+        mst_vertices.add(v)
+        total_tiempo += peso
 
-    ubicaciones = list(mst['visited'].keys())
-    ubicaciones.sort()
-    total_tiempo = sum(mst['distTo'].values())
+    ubicaciones = sorted(list(mst_vertices))
 
-    end = time.perf_counter()
-    tiempo_ms = round((end - start) * 1000, 3)
-
+    tiempo_final = get_time()
     return {
-        "tiempo_ms": tiempo_ms,
-        "cantidad_ubicaciones": len(ubicaciones),
-        "ubicaciones": ubicaciones,
-        "tiempo_total": total_tiempo
+        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
+        'cantidad_ubicaciones': len(ubicaciones),
+        'ubicaciones_subred': ubicaciones,
+        'tiempo_total': total_tiempo
     }
 
 
