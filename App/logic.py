@@ -169,12 +169,66 @@ def get_data(catalog, id):
     pass
 
 
-def req_1(catalog):
+def req_1(catalog, ubicacion_A, ubicacion_B):
     """
-    Retorna el resultado del requerimiento 1
+    Identifica si existe un camino simple entre dos ubicaciones geográficas usando DFS.
+    Retorna tiempo de ejecución, cantidad de puntos, ids de domiciliarios, secuencia del camino y restaurantes encontrados.
     """
-    # TODO: Modificar el requerimiento 1
-    pass
+    tiempo_inicial = get_time()
+    my_graph = catalog['domicilios']
+
+    # DFS para encontrar un camino simple entre A y B
+    stack = [(ubicacion_A, [ubicacion_A])]
+    visited = set()
+    path = []
+    found = False
+
+    while stack:
+        current, current_path = stack.pop()
+        if current == ubicacion_B:
+            path = current_path
+            found = True
+            break
+        if current not in visited:
+            visited.add(current)
+            try:
+                adj_nodes = gr.adjacents(my_graph, current)
+                for neighbor in adj_nodes['elements']:
+                    if neighbor not in visited and neighbor not in current_path:
+                        stack.append((neighbor, current_path + [neighbor]))
+            except Exception:
+                continue
+
+    if not found:
+        tiempo_final = get_time()
+        return {
+            'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
+            'cantidad_puntos_geograficos': 0,
+            'ids_domiciliarios': [],
+            'camino': [],
+            'restaurantes_en_camino': [],
+            'mensaje': 'No existe un camino simple entre las ubicaciones.'
+        }
+
+    # Extraer ids de domiciliarios y restaurantes en el camino
+    ids_domiciliarios = set()
+    restaurantes = []
+    for nodo in path:
+        info = gr.get_vertex_information(my_graph, nodo)
+        if 'info' in info:
+            info = info['info']
+        ids_domiciliarios.update(info.get('domiciliarios', []))
+        if info.get('tipo') == 'restaurante':
+            restaurantes.append(nodo)
+
+    tiempo_final = get_time()
+    return {
+        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
+        'cantidad_puntos_geograficos': len(path),
+        'ids_domiciliarios': list(ids_domiciliarios),
+        'camino': path,
+        'restaurantes_en_camino': restaurantes
+    }
 
 
 def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
@@ -398,12 +452,94 @@ def req_4(catalog, ubicacion_A, ubicacion_B):
     }
 
 
-def req_5(catalog):
+def req_5(catalog, ubicacion_A, N):
     """
-    Retorna el resultado del requerimiento 5
+    Identifica el domiciliario que recorre mayor cantidad de distancia en N cambios de ubicación geográfica a partir de un punto inicial.
+    Retorna el tiempo de ejecución, el domiciliario (id y distancia en km) y la secuencia de ubicaciones del camino simple de mayor distancia.
     """
-    # TODO: Modificar el requerimiento 5
-    pass
+    tiempo_inicial = get_time()
+    my_graph = catalog['domicilios']
+
+    # Diccionario para guardar: {domiciliario: (distancia_total, [camino])}
+    mejores_caminos = {}
+
+    # Para cada domiciliario que pasa por el punto inicial
+    info_inicio = gr.get_vertex_information(my_graph, ubicacion_A)
+    if 'info' in info_inicio:
+        info_inicio = info_inicio['info']
+    domiciliarios = set(info_inicio.get('domiciliarios', []))
+
+    for domi in domiciliarios:
+        # Construir subgrafo solo para este domiciliario
+        sub_grafo = gr.new_graph(1000)
+        vertices = gr.vertices(my_graph)
+        for v in vertices['elements']:
+            info = gr.get_vertex_information(my_graph, v)
+            if 'domiciliarios' in info['info'] and domi in info['info']['domiciliarios']:
+                gr.insert_vertex(sub_grafo, v, info)
+        for v in gr.vertices(sub_grafo)['elements']:
+            info = gr.get_vertex_information(my_graph, v)
+            if 'adjacents' in info:
+                adjacents = info['adjacents']
+                for w in mp.key_set(adjacents)['elements']:
+                    if gr.contains_vertex(sub_grafo, w):
+                        edge = mp.get(adjacents, w)
+                        gr.add_edge(sub_grafo, v, w, weight=edge['weight'], undirected=True)
+
+        # BFS para encontrar todos los caminos de longitud N desde ubicacion_A
+        bfs_result = bfs.bfs(sub_grafo, ubicacion_A)
+        parent = bfs_result['parent']
+
+        # Buscar todos los nodos a distancia N desde ubicacion_A
+        caminos = []
+        for destino in gr.vertices(sub_grafo)['elements']:
+            # Reconstruir camino desde destino hasta ubicacion_A
+            path = []
+            current = destino
+            while current is not None and current in parent:
+                path.append(current)
+                current = parent[current]
+            path.reverse()
+            if len(path) == N + 1 and path[0] == ubicacion_A:
+                caminos.append(path)
+
+        # Calcular la distancia para cada camino y guardar el de mayor distancia
+        max_dist = 0
+        mejor_camino = []
+        for path in caminos:
+            dist = 0
+            for i in range(len(path) - 1):
+                info_v = gr.get_vertex_information(my_graph, path[i])
+                info_w = gr.get_vertex_information(my_graph, path[i+1])
+                lat1, lon1 = map(float, path[i].split('_'))
+                lat2, lon2 = map(float, path[i+1].split('_'))
+                dist += ut.haversine(lat1, lon1, lat2, lon2)
+            if dist > max_dist:
+                max_dist = dist
+                mejor_camino = path
+
+        if mejor_camino:
+            mejores_caminos[domi] = (max_dist, mejor_camino)
+
+    # Encontrar el domiciliario con mayor distancia
+    if not mejores_caminos:
+        tiempo_final = get_time()
+        return {
+            'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
+            'mensaje': 'No se encontró ningún camino de longitud N desde el punto inicial.'
+        }
+
+    domi_max = max(mejores_caminos, key=lambda d: mejores_caminos[d][0])
+    distancia_max, camino_max = mejores_caminos[domi_max]
+
+    tiempo_final = get_time()
+    return {
+        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
+        'domiciliario': domi_max,
+        'distancia_km': distancia_max,
+        'camino': camino_max
+    }
+
 
 def req_6(catalog):
     """
