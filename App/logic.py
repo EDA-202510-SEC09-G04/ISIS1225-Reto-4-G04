@@ -16,7 +16,7 @@ from App import utils as ut
 from DataStructures.Graph import dijsktra_structure as dj
 from DataStructures.Graph import prim_structure as pr
 from DataStructures.Graph import edge as ed
-
+from App import bono
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 data_dir = os.path.dirname(os.path.realpath('__file__')) + '/Data/'
@@ -57,7 +57,7 @@ def load_data(catalog):
     Carga los datos del reto
     """
     tiempo_inicial = get_time()
-    files = data_dir + 'deliverytime_100.csv'
+    files = data_dir + 'deliverytime_20.csv'
     input_file = csv.DictReader(open(files, encoding='utf-8'))
     
     my_graph = catalog['domicilios']
@@ -139,6 +139,9 @@ def load_data(catalog):
        
        
     print("Grafo creado.")
+    
+    #añadir historial al grafo
+    my_graph['historial'] = historial
     
     #RETORNOS AL FINAL
     
@@ -649,8 +652,14 @@ def req_8(catalog):
     """
     Retorna el resultado del requerimiento 8
     """
-    # TODO: Modificar el requerimiento 8
-    pass
+    mapa = bono.graficar_recorrido(
+    my_graph=catalog['domicilios'],
+    domiciliario="SURRES01DEL03",
+    nodo_central="20.0000_70.0000",  
+    radio_km=400
+    )
+    
+    return mapa
 
 
 # Funciones para medir tiempos de ejecucion

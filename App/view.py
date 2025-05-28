@@ -103,8 +103,10 @@ def print_req_8(control):
     """
         Función que imprime la solución del Requerimiento 8 en consola
     """
-    # TODO: Imprimir el resultado del requerimiento 8
-    pass
+    print('generando mapa...')
+    
+    return logic.req_8(control)
+    
 
 
 # Se crea la lógica asociado a la vista
