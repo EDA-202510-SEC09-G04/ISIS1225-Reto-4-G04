@@ -1,638 +1,473 @@
-import time
 import os
 import csv
-import sys
-import pprint as pprint
-from DataStructures.Map import map_separate_chaining as msc
-from DataStructures.List import array_list as lt
-from DataStructures.List import single_linked_list as slist
-from DataStructures.Map import map_entry as me
-from DataStructures.Map import map_functions as mf
-from DataStructures.Utils import error as error
-from DataStructures.Graph import digraph as gr
-from DataStructures.Graph import bfs as bfs
+import math
 from DataStructures.Map import map_linear_probing as mp
-from App import utils as ut
-from DataStructures.Graph import dijsktra as dj
-from DataStructures.Graph import prim_structure as pr
-from DataStructures.Graph import edge as ed
+from DataStructures.Graph import digraph as gr
+from DataStructures.List import array_list as lst
+from DataStructures.Graph import dfs, bfs, dijkstra as dijk, prim
 from App import bono
 
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-data_dir = os.path.dirname(os.path.realpath('__file__')) + '/Data/'
+base_path = os.path.dirname(os.path.realpath('__file__')) + '/Data/'
 
-defualt_limit = 1000
-sys.setrecursionlimit(defualt_limit*10)
-csv.field_size_limit(2147483647)
-
-
-
-def get_time():
-    """
-    devuelve el instante tiempo de procesamiento en milisegundos
-    """
-    return float(time.perf_counter()*1000)
-
-
-def delta_time(start, end):
-    """
-    devuelve la diferencia entre tiempos de procesamiento muestreados
-    """
-    elapsed = float(end - start)
-    return elapsed
-
-def new_logic():
-    """
-    Crea el catalogo para almacenar las estructuras de datos
-    """
-    catalog = {
-        'domicilios': gr.new_graph(5053)
-    } 
-    return catalog
-
-# Funciones para la carga de datos
-
-def load_data(catalog):
-    """
-    Carga los datos del reto
-    """
-    tiempo_inicial = get_time()
-    files = data_dir + 'deliverytime_100.csv'
-    input_file = csv.DictReader(open(files, encoding='utf-8'))
-    
-    my_graph = catalog['domicilios']
-    
-    total_domicilios = 0
-    total_tiempo = []
-    
-    #diccionario de historial de domiciliarios para los arcos adicionales
-    
-    historial = {}
-    
-    print("Creando grafo...")
-    for row in input_file:
-        total_domicilios += 1
-        
-        rest_lat = str(row['Restaurant_latitude'])
-        rest_lon = str(row['Restaurant_longitude'])
-        des_lat = str(row['Delivery_location_latitude'])
-        des_lon = str(row['Delivery_location_longitude'])
-
-        #formateo de los ids
-        id_rest = ut.format_location(rest_lat, rest_lon) 
-        id_des = ut.format_location(des_lat, des_lon) 
-        
-        #obtener id del domiciliario
-        id_domiciliario = row['Delivery_person_ID']
-        
-        
-        #obtener tiempo tomado del domicilio
-        time = row['Time_taken(min)']
-        total_tiempo.append(int(time))
-    
-
-        #creacion nodo del origen con lista de domiciliarios
-        ut.crear_nodo(my_graph, id_rest, id_des, id_domiciliario, time, 'restaurante')
-        #creacion nodo del destino con  lista de domiciliarios
-        ut.crear_nodo(my_graph, id_des, id_rest, id_domiciliario, time, 'destino')
-        
-        
-        
-        
-        
-        #LLMAR A FUNCION DE CREACION DE ARCOS
-        my_graph = ut.actualizar_arista(my_graph, id_rest, id_des)
-        
-        
-        
-        #CREACION DE ARCOS ADICIONALES ENTRE DESTINOS DE DOMICILIARIOS
-        my_graph = ut.procesar_historial(my_graph, historial, id_domiciliario, (id_rest, id_des))
-        
-        #DESCOMENTAR PARA DEBUG
-        """ print(gr.get_vertex_information(my_graph, id_rest))
-
-        
-        print('NODO ORIGEN RESTAURANTE')
-        ut.print_node_info(my_graph, id_rest)
-        print('')
-        print('')
-        print('')
-        print('NODO DESTINO ')
-        ut.print_node_info(my_graph, id_des)
-        
-        ut.debug_arista(my_graph, id_rest, id_des)
-        
-        print('')
-        print('')
-        print('DEBUG HISTORIAL RAPPI ')
-        debug_historial(historial, id_domiciliario)
-        
-        # Verificar aristas creadas
-        if len(historial.get(id_domiciliario, [])) >= 2:
-            last_two = historial[id_domiciliario][-2:]
-            dest_anterior = last_two[0][1]
-            dest_actual = last_two[1][1]
-            ut.debug_arista(my_graph, dest_anterior, dest_actual)
-        print('')
-        print('')
-         """
-       
-       
-    print("Grafo creado.")
-    
-    #añadir historial al grafo
-    my_graph['historial'] = historial
-    
-    #RETORNOS AL FINAL
-    
-    #domicilios procesados
-    #domiciliarios identificados
-    total_domiciliarios = len(historial)
-    #total nodos
-    total_nodos = gr.order(my_graph)
-    #total arcos
-    total_arcos = (gr.size(my_graph))
-    #total restaurantes
-    
-    #total destinos
-    restaurantes, destinos = ut.contar_tipos_nodos(my_graph)
-    
-    #promedio entrega de todos los domis
-    total_tiempo = sum(total_tiempo)/len(total_tiempo)
-                    
-    tiempo_final = get_time()
-    delta = delta_time(tiempo_inicial, tiempo_final)
-    return catalog, total_domicilios, total_domiciliarios, total_nodos, total_arcos, restaurantes, destinos, total_tiempo, delta
-    
-    
-    
-# Funciones de consulta sobre el catálogo
-
-def get_data(catalog, id):
-    """
-    Retorna un dato por su ID.
-    """
-    #TODO: Consulta en las Llamar la función del modelo para obtener un dato
-    pass
-
-
-def req_1(catalog, ubicacion_A, ubicacion_B):
-    """
-    Identifica si existe un camino simple entre dos ubicaciones geográficas usando DFS.
-    Retorna tiempo de ejecución, cantidad de puntos, ids de domiciliarios, secuencia del camino y restaurantes encontrados.
-    """
-    tiempo_inicial = get_time()
-    my_graph = catalog['domicilios']
-
-    # DFS para encontrar un camino simple entre A y B
-    stack = [(ubicacion_A, [ubicacion_A])]
-    visited = set()
-    path = []
-    found = False
-
-    while stack:
-        current, current_path = stack.pop()
-        if current == ubicacion_B:
-            path = current_path
-            found = True
-            break
-        if current not in visited:
-            visited.add(current)
-            try:
-                adj_nodes = gr.adjacents(my_graph, current)
-                for neighbor in adj_nodes['elements']:
-                    if neighbor not in visited and neighbor not in current_path:
-                        stack.append((neighbor, current_path + [neighbor]))
-            except Exception:
-                continue
-
-    if not found:
-        tiempo_final = get_time()
-        return {
-            'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
-            'cantidad_puntos_geograficos': 0,
-            'ids_domiciliarios': [],
-            'camino': [],
-            'restaurantes_en_camino': [],
-            'mensaje': 'No existe un camino simple entre las ubicaciones.'
-        }
-
-    # Extraer ids de domiciliarios y restaurantes en el camino
-    ids_domiciliarios = set()
-    restaurantes = []
-    for nodo in path:
-        info = gr.get_vertex_information(my_graph, nodo)
-        if 'info' in info:
-            info = info['info']
-        ids_domiciliarios.update(info.get('domiciliarios', []))
-        if info.get('tipo') == 'restaurante':
-            restaurantes.append(nodo)
-
-    tiempo_final = get_time()
-    return {
-        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
-        'cantidad_puntos_geograficos': len(path),
-        'ids_domiciliarios': list(ids_domiciliarios),
-        'camino': path,
-        'restaurantes_en_camino': restaurantes
+def crear_catalogo():
+    datos = {
+        'grafo': gr.new_graph(100000),
+        'ulstimo_punto': mp.new_map(100000, 0.5),
+        'ubicaciones': mp.new_map(100000, 0.5),
+        'pesos_aristas': mp.new_map(200000, 0.5),
+        'origenes_unicos': mp.new_map(200000, 0.5),
+        'destinos_unicos': mp.new_map(200000, 0.5),
+        'pedidos_por_ubicacion': mp.new_map(500000, 0.5),
+        'vehiculos_por_ubicacion': mp.new_map(500000, 0.5)
     }
+    return datos
 
+def cortar_coord(valor):
+    escala = 10**4
+    valor_truncado = math.trunc(valor * escala) / escala
+    return f"{valor_truncado:.4f}"
 
-def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
-    """
-    Retorna el resultado del requerimiento 2
-    """
-    
-    tiempo_inicial = get_time()
-    my_graph = catalog['domicilios']
-    
-    sub_grafo= gr.new_graph(1000)
-    vertices = gr.vertices(my_graph)
-   # print(vertices)
-    for v in vertices['elements']:
-        
-         info = gr.get_vertex_information(my_graph,v)
-         if 'domiciliarios' in info['info'] and id_domiciliario in  info['info']['domiciliarios']:
-            gr.insert_vertex(sub_grafo,v,info)
-            
-    for v in gr.vertices(sub_grafo)['elements']:
-        info = gr.get_vertex_information(my_graph,v)
-        
-        
-         
-        if 'adjacents' in info:
-            adjacents = info['adjacents']
-          
-            
-            for w in mp.key_set(adjacents)['elements']:
-                
-                destino_info = gr.get_vertex_information(my_graph,w)
-                
-                if id_domiciliario in destino_info['info']['domiciliarios']:
-                    edge = mp.get(adjacents, w)
-                    # Usa el peso correcto
-                    if v is not None and w is not None and gr.contains_vertex(sub_grafo, v) and gr.contains_vertex(sub_grafo, w):
-                        gr.add_edge(sub_grafo, v, w, weight=edge, undirected=True)
-                    
-                    
-    # Recorrido BFS para encontrar el camino más corto
-    bfs_result = bfs.bfs(sub_grafo,ubicacion_A)
-    parent = bfs_result['parent']
-    
-    # Reconstruir el camino desde B hasta A
-    path = []
-    current = ubicacion_B
-    while current is not None and current in parent:
-        path.append(current)
-        current = parent[current]
-    path.reverse()
-    
-    if len(path) >= 1 and path[0] == ubicacion_A:
-        
-        ids_domiciliarios = [id_domiciliario]
-        restaurantes = []
-        for nodo in path:
-            info = gr.get_vertex_information(my_graph, nodo)
-            if info.get('tipo') == 'restaurante':
-                restaurantes.append(nodo)
-        respuesta = {
-            'cantidad_puntos_geograficos': len(path),
-            'ids_domiciliarios': ids_domiciliarios,
-            'camino': path,
-            'restaurantes_en_camino': restaurantes
-        }       
+def cargar_datos(catalogo, archivo):
+    total = 0
+    tiempo_total = 0
+    ruta = base_path + archivo
+
+    with open(ruta, encoding="utf-8") as archivo_csv:
+        lector = csv.DictReader(archivo_csv, delimiter=",")
+        for fila in lector:
+            datos = {
+                'id': fila['ID'],
+                'persona': fila['Delivery_person_ID'],
+                'edad': int(fila['Delivery_person_Age']),
+                'calificacion': float(fila['Delivery_person_Ratings']),
+                'lat_r': float(fila['Restaurant_latitude']),
+                'lon_r': float(fila['Restaurant_longitude']),
+                'lat_d': float(fila['Delivery_location_latitude']),
+                'lon_d': float(fila['Delivery_location_longitude']),
+                'orden': fila['Type_of_order'],
+                'vehiculo': fila['Type_of_vehicle'],
+                'tiempo': float(fila['Time_taken(min)'])
+            }
+
+            total += 1
+            tiempo_total += datos['tiempo']
+
+            origen = cortar_coord(datos['lat_r']) + '_' + cortar_coord(datos['lon_r'])
+            destino = cortar_coord(datos['lat_d']) + '_' + cortar_coord(datos['lon_d'])
+
+            _sumar_info(catalogo, origen, datos['persona'], datos['vehiculo'])
+            _sumar_info(catalogo, destino, datos['persona'], datos['vehiculo'])
+
+            mp.put(catalogo['origenes_unicos'], origen, True)
+            mp.put(catalogo['destinos_unicos'], destino, True)
+
+            agregar_conexion(catalogo, datos['lat_r'], datos['lon_r'], datos['lat_d'], datos['lon_d'], datos['tiempo'], datos['persona'])
+
+    return catalogo, total, tiempo_total
+
+def agregar_conexion(cat, lat_o, lon_o, lat_d, lon_d, tiempo, persona):
+    nodo_o = cortar_coord(lat_o) + '_' + cortar_coord(lon_o)
+    nodo_d = cortar_coord(lat_d) + '_' + cortar_coord(lon_d)
+
+    agregar_nodo(cat, nodo_o, persona)
+    agregar_nodo(cat, nodo_d, persona)
+
+    llave = tuple(sorted((nodo_o, nodo_d)))
+    existente = mp.get(cat['pesos_aristas'], llave)
+
+    if existente is None:
+        mp.put(cat['pesos_aristas'], llave, {'total': tiempo, 'conteo': 1})
+        peso = tiempo
     else:
-        
-        respuesta = {
-            'cantidad_puntos_geograficos': 0,
-            'ids_domiciliarios': [],
-            'camino': [],
-            'restaurantes_en_camino': [],
-            'mensaje': 'No existe un camino simple entre las ubicaciones para ese domiciliario.'
-        }
-        
+        existente['total'] += tiempo
+        existente['conteo'] += 1
+        mp.put(cat['pesos_aristas'], llave, existente)
+        peso = existente['total'] / existente['conteo']
+
+    gr.add_edge(cat['grafo'], nodo_o, nodo_d, peso)
+
+    anterior = mp.get(cat['ulstimo_punto'], persona)
+    if anterior is not None:
+        ulstimo = anterior['ubicacion']
+        tiempo_ant = anterior['tiempo']
+
+        if ulstimo != nodo_d:
+            prom = (tiempo + tiempo_ant) / 2.0
+            llave2 = tuple(sorted((nodo_d, ulstimo)))
+            actual = mp.get(cat['pesos_aristas'], llave2)
+
+            if actual is None:
+                mp.put(cat['pesos_aristas'], llave2, {'total': prom, 'conteo': 1})
+                peso2 = prom
+            else:
+                actual['total'] += prom
+                actual['conteo'] += 1
+                mp.put(cat['pesos_aristas'], llave2, actual)
+                peso2 = actual['total'] / actual['conteo']
+
+            gr.add_edge(cat['grafo'], nodo_d, ulstimo, peso2)
+
+    mp.put(cat['ulstimo_punto'], persona, {'ubicacion': nodo_d, 'tiempo': tiempo})
+
+    return cat
+
+def agregar_nodo(cat, nodo, persona):
+    lista = mp.get(cat['ubicaciones'], nodo)
+    if lista is None:
+        nueva = lst.new_list()
+        lst.add_last(nueva, persona)
+        gr.insert_vertex(cat['grafo'], nodo, nueva)
+        mp.put(cat['ubicaciones'], nodo, nueva)
+    else:
+        repetido = False
+        for i in range(lst.size(lista)):
+            if lst.get_element(lista, i) == persona:
+                repetido = True
+                break
+        if not repetido:
+            lst.add_last(lista, persona)
+            gr.update_vertex_info(cat['grafo'], nodo, lista)
+
+def _sumar_info(cat, nodo, persona, vehiculo):
+    clave = (nodo, persona)
+    actual = mp.get(cat['pedidos_por_ubicacion'], clave) or 0
+    mp.put(cat['pedidos_por_ubicacion'], clave, actual + 1)
+
+    tipos = mp.get(cat['vehiculos_por_ubicacion'], clave)
+    if tipos is None:
+        tipos = mp.new_map(10, 0.5)
+    prev = mp.get(tipos, vehiculo) or 0
+    mp.put(tipos, vehiculo, prev + 1)
+    mp.put(cat['vehiculos_por_ubicacion'], clave, tipos)
+
+def consulsta_1(cat, u, v):
+    res = dfs.dfs(cat['grafo'], u)
+    claves = mp.key_set(res['visited'])
+    if v in claves['elements']:
+        return res, cat['grafo']
+    return None
+
+def subgrafo_domiciliario(grafo, persona):
+    sub = gr.new_graph(gr.order(grafo), directed=False)
+    nodos = mp.new_map(gr.order(grafo), 0.5)
+    claves = gr.vertices(grafo)
+
+    for i in range(lst.size(claves)):
+        clave = lst.get_element(claves, i)
+        lista = gr.get_vertex_info(grafo, clave)
+        if lista and any(lst.get_element(lista, j) == persona for j in range(lst.size(lista))):
+            gr.insert_vertex(sub, clave, lista)
+            mp.put(nodos, clave, True)
+
+    claves_sub = mp.key_set(nodos)
+    for i in range(lst.size(claves_sub)):
+        u = lst.get_element(claves_sub, i)
+        vecinos = gr.adjacents(grafo, u)
+        if vecinos:
+            for j in range(lst.size(vecinos)):
+                v = lst.get_element(vecinos, j)
+                if mp.get(nodos, v):
+                    aristas = gr.get_adjacents(grafo, u)
+                    info_arista = mp.get(aristas, v)
+                    gr.add_edge(sub, u, v, info_arista['weight'])
+
+    return sub
+
+def req_2 (catalog, punto_a, punto_b, domiciliario ):
+    #1. Crear el subgrafo de los nodos que contiendes el domiciliario.
+    subgrafo = crear_subgrafo_para_domiciliario(catalog['grafo_domicilios'],domiciliario)
+    mapa_bfs = bfs.bfs(subgrafo,punto_a)
+    conexion = map.key_set(mapa_bfs['visited'])
+    if punto_b in conexion['elements']:
+        return mapa_bfs, catalog["grafo_domicilios"]
+    else: 
+        return None 
     
-    tiempo_final = get_time()
-    respuesta['tiempo_en_ms'] = tiempo_final - tiempo_inicial
-    return respuesta
+
+def req_3(catalog, geo_point_a):
+
+    # 1) Buscar domiciliario con más pedidos en geo_point_a
+    domic_maximo_id = None
+    pedidos_maximos = 0
+    llaves = map.key_set(catalog['pedidos_por_ubicacion_persona'])
+    for i in range(lst.size(llaves)):
+        ubicacion, dp_id = lst.get_element(llaves, i)
+        if ubicacion == geo_point_a:
+            cantidad = map.get(catalog['pedidos_por_ubicacion_persona'], (ubicacion, dp_id))
+            if cantidad > pedidos_maximos:
+                pedidos_maximos, domic_maximo_id = cantidad, dp_id
+
+    # 2) Si no hay pedidos
+    if domic_maximo_id is None:
+        return None, 0, None
+
+    # 3) Vehículo más usado por ese domiciliario en ese punto
+    vehiculo_favorito = None
+    contador_vehiculo_max = 0
+    mapa_veh = map.get(catalog['vehiculos_por_ubicacion_persona'], (geo_point_a, domic_maximo_id))
+    if mapa_veh is not None:
+        llaves_v = map.key_set(mapa_veh)
+        for j in range(lst.size(llaves_v)):
+            veh = lst.get_element(llaves_v, j)
+            uso = map.get(mapa_veh, veh)
+            if uso > contador_vehiculo_max:
+                contador_vehiculo_max, vehiculo_favorito = uso, veh
+
+    return domic_maximo_id, pedidos_maximos, vehiculo_favorito
+
+
+
+
+
+
+
+def req_4(catalog, punto_a, punto_b): 
+
+    if gr.get_vertex_info(catalog['grafo_domicilios'], punto_a) is None: 
+        return (lst.new_list(), lst.new_list(), False)
+    if gr.get_vertex_info(catalog['grafo_domicilios'], punto_b) is None: 
+        return (lst.new_list(), lst.new_list(), False)
+
+    resulstados_bfs = bfs.bfs(catalog['grafo_domicilios'], punto_a) 
+    secuencia_camino = bfs.pathTo(resulstados_bfs, punto_b) 
+    # Si no hay camino a la ubicación final
+    if secuencia_camino is None:
+        return (lst.new_list(), lst.new_list(), False)
+    id_primer_nodo = lst.get_element(secuencia_camino, 0)
+    domiciliarios_primer_nodo = gr.get_vertex_info(catalog['grafo_domicilios'], id_primer_nodo) 
+    
+    if domiciliarios_primer_nodo is None:
+        lista_domiciliarios_comunes = lst.new_list() 
+    else:
+        lista_domiciliarios_comunes = lst.new_list()
+        for i in range(lst.size(domiciliarios_primer_nodo)):
+            lst.add_last(lista_domiciliarios_comunes, lst.get_element(domiciliarios_primer_nodo, i))
+            
+    #  resto de los nodos del camino (desde el segundo nodo en adelante)
+    indice_nodo_camino = 1 
+    
+    while indice_nodo_camino < lst.size(secuencia_camino) and not lst.is_empty(lista_domiciliarios_comunes):
+        id_nodo_actual = lst.get_element(secuencia_camino, indice_nodo_camino)
+        domiciliarios_nodo_actual = gr.get_vertex_info(catalog['grafo_domicilios'], id_nodo_actual)
         
-
-
-#catalogo = new_logic()
-
-#load_data(catalogo)
-
-
-
-
-
-#print(req_2(catalogo,'INDORES16DEL02',ut.format_location('22.744648','75.894377'),ut.format_location('22.310237','73.158921')))
-
-        
-def req_3(catalog, punto_geografico):
-    """
-    Identifica el domiciliario con mayor cantidad de pedidos para un punto geográfico específico.
-    Retorna el tiempo de ejecución, el domiciliario más popular, la cantidad de pedidos y el tipo de vehículo más usado por ese domiciliario en ese punto.
-    """
-    tiempo_inicial = get_time()
-    my_graph = catalog['domicilios']
-
-    if not gr.contains_vertex(my_graph, punto_geografico):
-        return {
-            'mensaje': 'El punto geográfico no existe en el grafo.',
-            'tiempo_en_ms': 0
-        }
-
-    info = gr.get_vertex_information(my_graph, punto_geografico)
-    # info['info'] si tu estructura es anidada
-    if 'info' in info:
-        info = info['info']
-
-    # Contar pedidos por domiciliario y tipos de vehículo
-    contador_domi = {}
-    vehiculos_domi = {}
-
-    if 'domiciliarios' in info:
-        for domi in info['domiciliarios']:
-            if domi not in contador_domi:
-                contador_domi[domi] = 0
-                vehiculos_domi[domi] = {}
-            contador_domi[domi] += 1
-            # Contar tipo de vehículo si está disponible
-            if 'vehiculos' in info:
-                vehiculo = info['vehiculos'].get(domi)
-                if vehiculo:
-                    vehiculos_domi[domi][vehiculo] = vehiculos_domi[domi].get(vehiculo, 0) + 1
-
-    if not contador_domi:
-        return {
-            'mensaje': 'No hay pedidos en ese punto geográfico.',
-            'tiempo_en_ms': delta_time(tiempo_inicial, get_time())
-        }
-
-    # Encontrar domiciliario con más pedidos
-    domi_popular = max(contador_domi, key=contador_domi.get)
-    cantidad_pedidos = contador_domi[domi_popular]
-
-    # Tipo de vehículo más usado por ese domiciliario
-    tipo_vehiculo = None
-    if domi_popular in vehiculos_domi and vehiculos_domi[domi_popular]:
-        tipo_vehiculo = max(vehiculos_domi[domi_popular], key=vehiculos_domi[domi_popular].get)
-
-    tiempo_final = get_time()
-    return {
-        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
-        'domiciliario_mas_popular': domi_popular,
-        'cantidad_pedidos': cantidad_pedidos,
-        'vehiculo_mas_usado': tipo_vehiculo
-    }
-
-
-#print(req_3(catalogo,'23.3646_77.5316'))
-
-
-#print(gr.vertices(catalogo['domicilios']))
-
-
-def req_4(catalog, ubicacion_A, ubicacion_B):
-    """
-    Identifica los domiciliarios en común entre los puntos geográficos A y B
-    en el camino simple con menos puntos intermedios.
-    """
-    tiempo_inicial = get_time()
-    my_graph = catalog['domicilios']
-
-    # BFS para encontrar el camino más corto (menos puntos intermedios)
-    bfs_result = bfs.bfs(my_graph, ubicacion_A)
-    parent = bfs_result['parent']
-
-    # Reconstruir el camino desde B hasta A
-    path = []
-    current = ubicacion_B
-    while current is not None and current in parent:
-        path.append(current)
-        current = parent[current]
-    path.reverse()
-
-    # Si no hay camino, retornar mensaje
-    if len(path) <= 1 or path[0] != ubicacion_A:
-        tiempo_final = get_time()
-        return {
-            'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
-            'camino': [],
-            'domiciliarios_en_comun': [],
-            'mensaje': 'No existe un camino simple entre las ubicaciones.'
-        }
-
-    # Encontrar domiciliarios en común en todos los nodos del camino
-    domiciliarios_comunes = None
-    for nodo in path:
-        info = gr.get_vertex_information(my_graph, nodo)
-        if 'info' in info:
-            info = info['info']
-        domis = set(info.get('domiciliarios', []))
-        if domiciliarios_comunes is None:
-            domiciliarios_comunes = domis
+        if domiciliarios_nodo_actual is None:
+            lista_domiciliarios_comunes = lst.new_list() 
         else:
-            domiciliarios_comunes = domiciliarios_comunes.intersection(domis)
+            siguientes_candidatos_comunes = lst.new_list()
+            
+            indice_busqueda_dom = 0
+            while indice_busqueda_dom < lst.size(lista_domiciliarios_comunes):
+                domiciliario_candidato = lst.get_element(lista_domiciliarios_comunes, indice_busqueda_dom)
+                
+                encontrado_en_nodo_actual = False
+                indice_en_nodo_actual = 0
+                while indice_en_nodo_actual < lst.size(domiciliarios_nodo_actual) and not encontrado_en_nodo_actual:
+                    if lst.get_element(domiciliarios_nodo_actual, indice_en_nodo_actual) == domiciliario_candidato:
+                        encontrado_en_nodo_actual = True
+                    indice_en_nodo_actual += 1 
+                
+                if encontrado_en_nodo_actual:
+                    lst.add_last(siguientes_candidatos_comunes, domiciliario_candidato)
+                indice_busqueda_dom += 1 
+            lista_domiciliarios_comunes = siguientes_candidatos_comunes
+        indice_nodo_camino += 1 
+        
+    return secuencia_camino, lista_domiciliarios_comunes
 
-    tiempo_final = get_time()
-    return {
-        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
-        'camino': path,
-        'domiciliarios_en_comun': list(domiciliarios_comunes) if domiciliarios_comunes else []
-    }
-
-
-def req_5(catalog, ubicacion_A, N):
+def req_6(catalog, punto_a):
+    costo_min = dijk.dijkstra(catalog['grafo_domicilios'],punto_a)
+    ubicaciones_alcanzables_list_py = [] 
+    max_tiempo_alcanzable = -1.0 
+    ubicacion_mayor_tiempo = None
+    all_vertices_keys_lst = gr.vertices(catalog['grafo_domicilios']) 
+    for i in range(lst.size(all_vertices_keys_lst)):
+        v_key = lst.get_element(all_vertices_keys_lst, i) 
+        if dijk.has_path_to(v_key, costo_min):
+            ubicaciones_alcanzables_list_py.append(v_key) 
+            current_dist = dijk.dist_to(v_key, costo_min)
+            if current_dist > max_tiempo_alcanzable:
+                max_tiempo_alcanzable = current_dist
+                ubicacion_mayor_tiempo = v_key
+                
+    ubicaciones_alcanzables_list_py.sort() 
+    identificadores_alcanzables_ordenados_lst = lst.new_list()
+    for id_val in ubicaciones_alcanzables_list_py:
+        lst.add_last(identificadores_alcanzables_ordenados_lst, id_val)
+        
+    secuencia_camino_mayor_tiempo_lst = lst.new_list() 
+    if ubicacion_mayor_tiempo is not None:
+        secuencia_camino_mayor_tiempo_lst = dijk.path_to(ubicacion_mayor_tiempo, costo_min)
+    
+    
+    return len(ubicaciones_alcanzables_list_py), identificadores_alcanzables_ordenados_lst, secuencia_camino_mayor_tiempo_lst, max_tiempo_alcanzable
+    
+            
+        
+def crear_subgrafo_para_domiciliario(grafo_original, domiciliario_id_filstro):
     """
-    Identifica el domiciliario que recorre mayor cantidad de distancia en N cambios de ubicación geográfica a partir de un punto inicial.
-    Retorna el tiempo de ejecución, el domiciliario (id y distancia en km) y la secuencia de ubicaciones del camino simple de mayor distancia.
+    Crea un subgrafo que contiene solo los nodos que están asociados con un domiciliario específico,
+    y las aristas que conectan esos nodos.
+
+    Args:
+        grafo_original (dict): El grafo principal de domicilios.
+        domiciliario_id_filstro (str): El ID del domiciliario por el cual filstrar los nodos.
+
+    Returns:
+        dict: Un nuevo objeto grafo (mi_grafo) que es el subgrafo filstrado.
     """
-    tiempo_inicial = get_time()
-    my_graph = catalog['domicilios']
+    
+    # Crear un nuevo grafo vacío para el subgrafo
+    # Usar el orden del original como capacidad inicial para los mapas del subgrafo.
+    subgrafo = gr.new_graph(gr.order(grafo_original), directed=False) 
 
-    # Diccionario para guardar: {domiciliario: (distancia_total, [camino])}
-    mejores_caminos = {}
+    # Mapa auxiliar para rastrear los vértices del subgrafo ya añadidos
+    nodos_en_subgrafo = map.new_map(gr.order(grafo_original), 0.5)
 
-    # Para cada domiciliario que pasa por el punto inicial
-    info_inicio = gr.get_vertex_information(my_graph, ubicacion_A)
-    if 'info' in info_inicio:
-        info_inicio = info_inicio['info']
-    domiciliarios = set(info_inicio.get('domiciliarios', []))
+    # 1. Identificar y añadir vértices al subgrafo que contengan al domiciliario
+    claves_vertices_originales = gr.vertices(grafo_original) # Obtener todas las claves de vértices del grafo original
 
-    for domi in domiciliarios:
-        # Construir subgrafo solo para este domiciliario
-        sub_grafo = gr.new_graph(1000)
-        vertices = gr.vertices(my_graph)
-        for v in vertices['elements']:
-            info = gr.get_vertex_information(my_graph, v)
-            if 'domiciliarios' in info['info'] and domi in info['info']['domiciliarios']:
-                gr.insert_vertex(sub_grafo, v, info)
-        for v in gr.vertices(sub_grafo)['elements']:
-            info = gr.get_vertex_information(my_graph, v)
-            if 'adjacents' in info:
-                adjacents = info['adjacents']
-                for w in mp.key_set(adjacents)['elements']:
-                    if gr.contains_vertex(sub_grafo, w):
-                        edge = mp.get(adjacents, w)
-                        gr.add_edge(sub_grafo, v, w, weight=edge['weight'], undirected=True)
+    for i in range(lst.size(claves_vertices_originales)):
+        clave_vertice = lst.get_element(claves_vertices_originales, i)
+        
+        # Obtener la lista de IDs de domiciliarios asociada a este vértice (es el 'value' del nodo)
+        lista_domiciliarios_nodo = gr.get_vertex_info(grafo_original, clave_vertice)
+        
+        domiciliario_encontrado_en_nodo = False
+        if lista_domiciliarios_nodo is not None:
+            # Iterar manualmente sobre la lista de domiciliarios para verificar la presencia
+            idx_dom = 0
+            while idx_dom < lst.size(lista_domiciliarios_nodo) and not domiciliario_encontrado_en_nodo:
+                if lst.get_element(lista_domiciliarios_nodo, idx_dom) == domiciliario_id_filstro:
+                    domiciliario_encontrado_en_nodo = True
+                idx_dom += 1
+        
+        if domiciliario_encontrado_en_nodo:
+            # Si el nodo contiene al domiciliario, añadirlo al subgrafo
+            # El valor del nodo en el subgrafo será la misma lista de domiciliarios (copia por referencia, lo cual es OK)
+            gr.insert_vertex(subgrafo, clave_vertice, lista_domiciliarios_nodo)
+            map.put(nodos_en_subgrafo, clave_vertice, True) # Marcar que este nodo está en el subgrafo
 
-        # BFS para encontrar todos los caminos de longitud N desde ubicacion_A
-        bfs_result = bfs.bfs(sub_grafo, ubicacion_A)
-        parent = bfs_result['parent']
+    # 2. Añadir aristas al subgrafo (solo si ambos extremos están en el subgrafo)
+    # Iterar sobre todos los vértices que acabamos de añadir al subgrafo
+    claves_vertices_subgrafo = map.key_set(nodos_en_subgrafo) # Obtener las claves de los nodos que están en el subgrafo
 
-        # Buscar todos los nodos a distancia N desde ubicacion_A
-        caminos = []
-        for destino in gr.vertices(sub_grafo)['elements']:
-            # Reconstruir camino desde destino hasta ubicacion_A
-            path = []
-            current = destino
-            while current is not None and current in parent:
-                path.append(current)
-                current = parent[current]
-            path.reverse()
-            if len(path) == N + 1 and path[0] == ubicacion_A:
-                caminos.append(path)
+    for i in range(lst.size(claves_vertices_subgrafo)):
+        clave_u = lst.get_element(claves_vertices_subgrafo, i)
+        
+        # Obtener los adyacentes de 'u' en el grafo ORIGINAL (para ver las aristas)
+        # gr.adjacents() devuelve un array_list de claves de vecinos
+        adyacentes_u_original = gr.adjacents(grafo_original, clave_u) 
+        
+        if adyacentes_u_original is not None:
+            for j in range(lst.size(adyacentes_u_original)):
+                clave_v = lst.get_element(adyacentes_u_original, j)
+                
+                # Verificar si el vecino 'v' también está en el subgrafo
+                if map.get(nodos_en_subgrafo, clave_v) is not None:
+                    # Si ambos 'u' y 'v' están en el subgrafo, añadir la arista entre ellos.
+                    # El peso debe ser el original.
+                    
+                    # Obtener la arista completa desde el grafo original (mapa de adyacencia de u)
+                    mapa_adyacencia_u_original = gr.get_adjacents(grafo_original, clave_u) # Esto devuelve un mapa
+                    arista_original = map.get(mapa_adyacencia_u_original, clave_v)
+                    peso_arista = arista_original['weight']
+                    
+                    # Añadir la arista al subgrafo. gr.add_edge se encarga de la no-direccionalidad
+                    # y la no-paralelidad, y de contar el num_edges.
+                    gr.add_edge(subgrafo, clave_u, clave_v, peso_arista)
 
-        # Calcular la distancia para cada camino y guardar el de mayor distancia
-        max_dist = 0
-        mejor_camino = []
-        for path in caminos:
-            dist = 0
-            for i in range(len(path) - 1):
-                info_v = gr.get_vertex_information(my_graph, path[i])
-                info_w = gr.get_vertex_information(my_graph, path[i+1])
-                lat1, lon1 = map(float, path[i].split('_'))
-                lat2, lon2 = map(float, path[i+1].split('_'))
-                dist += ut.haversine(lat1, lon1, lat2, lon2)
-            if dist > max_dist:
-                max_dist = dist
-                mejor_camino = path
+    return subgrafo
+        
+def req_7(catalog, punto_A_id, domiciliario_id):
 
-        if mejor_camino:
-            mejores_caminos[domi] = (max_dist, mejor_camino)
-
-    # Encontrar el domiciliario con mayor distancia
-    if not mejores_caminos:
-        tiempo_final = get_time()
+    info_punto_A = gr.get_vertex_info(catalog['grafo_domicilios'], punto_A_id)
+    if info_punto_A is None:
         return {
-            'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
-            'mensaje': 'No se encontró ningún camino de longitud N desde el punto inicial.'
+            'cantidad_ubicaciones_subred': 0,
+            'identificadores_subred_ordenados': lst.new_list(),
+            'peso_total_mst': 0.0,
+            'valido': False, 'mensaje_error': f"El punto de origen '{punto_A_id}' no existe en el grafo principal."
         }
 
-    domi_max = max(mejores_caminos, key=lambda d: mejores_caminos[d][0])
-    distancia_max, camino_max = mejores_caminos[domi_max]
-
-    tiempo_final = get_time()
-    return {
-        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
-        'domiciliario': domi_max,
-        'distancia_km': distancia_max,
-        'camino': camino_max
-    }
-
-
-def req_6(catalog, ubicacion_A):
-    """
-    Identifica los caminos de costo mínimo en tiempo desde una ubicación geográfica específica.
-    Retorna el tiempo de ejecución, cantidad de ubicaciones alcanzables, sus IDs ordenados, 
-    y el camino de mayor tiempo mínimo desde el origen.
-    """
-    tiempo_inicial = get_time()
-    my_graph = catalog['domicilios']
-
-    # Ejecutar Dijkstra desde el nodo de inicio usando el peso 'weight' (tiempo)
-    dijkstra_result = ut.dijkstra(my_graph, ubicacion_A)  # Debes tener una función dijkstra en utils
-
-    # Extraer distancias y padres
-    dist_to = dijkstra_result['dist_to']  # {nodo: tiempo_total}
-    parent = dijkstra_result['parent']    # {nodo: predecesor}
-
-    # Filtrar solo los nodos alcanzables (distancia < infinito)
-    alcanzables = [nodo for nodo in dist_to if dist_to[nodo] < float('inf')]
-    alcanzables.sort()  # Orden alfabético
-
-    # Encontrar el nodo alcanzable con mayor tiempo mínimo
-    if not alcanzables:
-        tiempo_final = get_time()
+    domiciliario_en_origen = False
+    if info_punto_A is not None:
+        idx_dom = 0
+        while idx_dom < lst.size(info_punto_A) and not domiciliario_en_origen:
+            if lst.get_element(info_punto_A, idx_dom) == domiciliario_id:
+                domiciliario_en_origen = True
+            idx_dom += 1
+    
+    if not domiciliario_en_origen:
         return {
-            'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
-            'cantidad_ubicaciones': 0,
-            'ubicaciones_alcanzables': [],
-            'camino_mayor_tiempo': [],
-            'tiempo_total': 0,
-            'mensaje': 'No hay ubicaciones alcanzables desde el punto dado.'
+            'cantidad_ubicaciones_subred': 0,
+            'identificadores_subred_ordenados': lst.new_list(),
+            'peso_total_mst': 0.0,
+            'valido': False, 'mensaje_error': f"El punto de origen '{punto_A_id}' no está asociado con el domiciliario '{domiciliario_id}'. No se puede iniciar el MST."
         }
 
-    nodo_mayor_tiempo = max(alcanzables, key=lambda n: dist_to[n])
-    tiempo_mayor = dist_to[nodo_mayor_tiempo]
+ 
+    grafo_filstrado = crear_subgrafo_para_domiciliario(catalog['grafo_domicilios'], domiciliario_id)
 
-    # Reconstruir el camino de costo mínimo a ese nodo
-    camino = []
-    current = nodo_mayor_tiempo
-    while current is not None and current in parent:
-        camino.append(current)
-        current = parent[current]
-    camino.reverse()
+    if gr.order(grafo_filstrado) == 0:
+        return {
+            'cantidad_ubicaciones_subred': 0,
+            'identificadores_subred_ordenados': lst.new_list(),
+            'peso_total_mst': 0.0,
+            'valido': False, 'mensaje_error': f"No se encontraron ubicaciones para el domiciliario '{domiciliario_id}'. El subgrafo está vacío."
+        }
+    if gr.get_vertex_info(grafo_filstrado, punto_A_id) is None:
+        return {
+            'cantidad_ubicaciones_subred': 0,
+            'identificadores_subred_ordenados': lst.new_list(),
+            'peso_total_mst': 0.0,
+            'valido': False, 'mensaje_error': f"El punto de origen '{punto_A_id}' no existe en el subgrafo del domiciliario '{domiciliario_id}'."
+        }
+    
+    #Ejecutar el algoritmo de Prim's en el SUBGRAFO filstrado
+  
+    prim_resulsts = prim.prim_mst(grafo_filstrado, punto_A_id)
 
-    tiempo_final = get_time()
-    return {
-        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
-        'cantidad_ubicaciones': len(alcanzables),
-        'ubicaciones_alcanzables': alcanzables,
-        'camino_mayor_tiempo': camino,
-        'tiempo_total': tiempo_mayor
+    # 4. Extraer y calcular los resulstados
+    
+    cantidad_ubicaciones_subred = 0
+    identificadores_subred_list_py = []
+    
+    marked_nodes_keys_lst = map.key_set(prim_resulsts['marked']) 
+    for i in range(lst.size(marked_nodes_keys_lst)):
+        node_id = lst.get_element(marked_nodes_keys_lst, i)
+        if map.get(prim_resulsts['marked'], node_id) == True:
+            cantidad_ubicaciones_subred += 1
+            identificadores_subred_list_py.append(node_id)
+    
+
+    identificadores_subred_list_py.sort()
+
+ 
+    identificadores_subred_ordenados_lst = lst.new_list()
+    for id_val in identificadores_subred_list_py:
+        lst.add_last(identificadores_subred_ordenados_lst, id_val)
+
+
+    peso_total_mst = prim.weight_mst(grafo_filstrado, prim_resulsts)
+    
+    # 6. Preparar el diccionario de respuesta
+    resulst = {
+        'cantidad_ubicaciones_subred': cantidad_ubicaciones_subred,
+        'identificadores_subred_ordenados': identificadores_subred_ordenados_lst,
+        'peso_total_mst': peso_total_mst,
+        'valido': True,
+        'origen_valido': True, # Se pudo iniciar desde el origen
+        'mensaje_error': None
     }
-
-
-def req_7(catalog, ubicacion_A, id_domiciliario):
-    """
-    Establece una subred (Árbol de Recubrimiento de Costo Mínimo en Tiempo) para un domiciliario particular desde una ubicación inicial.
-    Retorna el tiempo de ejecución, cantidad de ubicaciones, IDs ordenados y el costo total en tiempo del árbol.
-    """
-    tiempo_inicial = get_time()
-    my_graph = catalog['domicilios']
-
-    # 1. Construir subgrafo solo con los nodos y aristas del domiciliario
-    sub_grafo = gr.new_graph(1000)
-    vertices = gr.vertices(my_graph)
-    for v in vertices['elements']:
-        info = gr.get_vertex_information(my_graph, v)
-        if 'domiciliarios' in info['info'] and id_domiciliario in info['info']['domiciliarios']:
-            gr.insert_vertex(sub_grafo, v, info)
-    for v in gr.vertices(sub_grafo)['elements']:
-        info = gr.get_vertex_information(my_graph, v)
-        if 'adjacents' in info:
-            adjacents = info['adjacents']
-            for w in mp.key_set(adjacents)['elements']:
-                if gr.contains_vertex(sub_grafo, w):
-                    edge = mp.get(adjacents, w)
-                    gr.add_edge(sub_grafo, v, w, weight=edge['weight'], undirected=True)
-
-    # 2. Ejecutar Prim desde ubicacion_A en el subgrafo
-    prim_result = ut.prim(sub_grafo, ubicacion_A)  # Debes tener una función prim en utils
-
-    # 3. Extraer los nodos y el costo total del árbol
-    mst_edges = prim_result['mst_edges']  # Lista de aristas [(u, v, peso)]
-    mst_vertices = set()
-    total_tiempo = 0
-    for u, v, peso in mst_edges:
-        mst_vertices.add(u)
-        mst_vertices.add(v)
-        total_tiempo += peso
-
-    ubicaciones = sorted(list(mst_vertices))
-
-    tiempo_final = get_time()
-    return {
-        'tiempo_en_ms': delta_time(tiempo_inicial, tiempo_final),
-        'cantidad_ubicaciones': len(ubicaciones),
-        'ubicaciones_subred': ubicaciones,
-        'tiempo_total': total_tiempo
-    }
-
-
+    
+    # Advertencia si el MST no conectó todos los nodos del subgrafo (si el subgrafo no es conexo)
+    if cantidad_ubicaciones_subred < gr.order(grafo_filstrado):
+        resulst['mensaje_error'] = f"Advertencia: Prim's no conectó todas las {gr.order(grafo_filstrado)} ubicaciones del subgrafo ({cantidad_ubicaciones_subred} conectadas). El subgrafo filstrado no es conexo desde el origen."
+    
+    return resulst
+        
+        
+        
 def req_8(catalog):
     """
     Retorna el resultado del requerimiento 8
@@ -642,23 +477,9 @@ def req_8(catalog):
     domiciliario="SURRES01DEL03",
     nodo_central="20.0000_70.0000",  
     radio_km=400
-     )
+    )
     
     return mapa
-    
-
-# Funciones para medir tiempos de ejecucion
-
-def get_time():
-    """
-    devuelve el instante tiempo de procesamiento en milisegundos
-    """
-    return float(time.perf_counter()*1000)
-
-
-def delta_time(start, end):
-    """
-    devuelve la diferencia entre tiempos de procesamiento muestreados
-    """
-    elapsed = float(end - start)
-    return elapsed
+        
+        
+        
