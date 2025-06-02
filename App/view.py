@@ -1,14 +1,20 @@
 import sys
-from App import logic
-from tabulate import tabulate
+from App import logic as l
+from time import time
+from tabulate import tabulate 
+from DataStructures.List import array_list as al
+from DataStructures.Map import map_linear_probing as map
+from DataStructures.Graph import digraph as g
+from DataStructures.Graph import dfs
+from DataStructures.Graph import bfs
+default_limit = 1000
+sys.setrecursionlimit(default_limit*10)
 
 
 def new_logic():
-    """
-        Se crea una instancia del controlador
-    """
-    control = logic.new_logic()
-    return control
+    logica = l.new_catalog()
+    return logica
+
 
 def print_menu():
     print("Bienvenido")
@@ -24,92 +30,216 @@ def print_menu():
     print("0- Salir")
 
 def load_data(control):
-    """
-    Carga los datos
-    """
-    catalog, total_domicilios, total_domiciliarios, total_nodos, total_arcos, restaurantes, destinos, total_tiempo, delta = logic.load_data(control)
+    carga = l.load_data(control,'deliverytime_100.csv')
+    return carga
 
-    return catalog, total_domicilios, total_domiciliarios, total_nodos, total_arcos, restaurantes, destinos, total_tiempo, delta 
-
-def print_data(control, id):
-    """
-        Función que imprime un dato dado su ID
-    """
-    #TODO: Realizar la función para imprimir un elemento
-    pass
 
 def print_req_1(control):
-    fecha = input("Ingrese la fecha (YYYY-MM-DD): ")
-    r = logic.req_1(control, fecha)
-    print(f"\nTiempo de ejecución: {r['tiempo_ms']} ms")
-    print(f"Cantidad de entregas: {r['total_entregas']}")
-    print(tabulate(r['tabla'], headers="keys", tablefmt="fancy_grid"))
+    ubicacion_A = input("Por favor escribe el punto donde se iniciara la busqueda: ")
+    ubicacion_B = input("Por favor escribe el destino de la busqueda: ")
+    print("\n" + "=" * 100 + "\n")
+    tiempo_inical = time()
+    conexion, grafo = l.req_1(control, ubicacion_A, ubicacion_B)
+    tiempo_final = time() - tiempo_inical
+    camino = dfs.pathTo(conexion, ubicacion_B)
+    puntos = camino['size']
+    print("Tiempo de ejecución:", tiempo_final)
+    print("La cantidad de puntos geográficos en el camino son:", puntos,'\n')
+    lista = []
+    siguiente = camino['first']
+    while siguiente != None:
+        lista.append(siguiente['info'])
+        siguiente = siguiente['next']
+    secuencia = [camino]
+    final = []
+    domicilios = {}
+    for direccion in lista:
+        if direccion not in domicilios:
+            domicilios[direccion] = map.get(grafo['vertices'], direccion)['elements']
+
+    final.append(domicilios)
+    print("El id de los domiciliarios que componen el camino son:", '\n', tabulate(final, headers = 'keys', tablefmt= 'fancy_grid'), '\n')
+    print("La secuencia de ubicaciones que componene el camino simple son:", '\n',tabulate(secuencia, headers = 'keys', tablefmt= 'fancy_grid'), '\n') 
+    print("Y el total de restaurantes encontrado son:", map.key_set(conexion['visited'])['elements'] )
+    print("\n" + "=" * 100 + "\n")
 
 def print_req_2(control):
-    ini = input("Unbicaciòn A: ")
-    fin = input("Ubicaciòn B: ")
-    id = input("ID del domiciliario: ")
-    r = logic.req_2(control, id,ini, fin)
-    print(f"\nTiempo de ejecución: {r['tiempo_en_ms']} ms")
-    print(f"Total entregas: {r}")
-    # print(tabulate(r['tabla'], headers="keys", tablefmt="fancy_grid"))
+    punto_a = input("Por favor escribe el punto donde se iniciara la busqueda: ")
+    punto_b = input("Por favor escribe el destino de la busqueda: ")
+    domiciliario = input("Por favor escriba el id del domiciliario: ")
+    print("\n" + "=" * 100 + "\n")
+    tiempo_inical = time()
+    conexion, grafo = l.req_2(control, punto_a, punto_b,domiciliario)
+    tiempo_final = time() - tiempo_inical
+    camino = bfs.pathTo(conexion, punto_b)
+    puntos = camino['size']
+    print("Tiempo de ejecución:", tiempo_final)
+    print("La cantidad de puntos geográficos en el camino son:", puntos,'\n')
+    final = []
+    domicilios = {}
+    for direccion in camino['elements']:
+        if direccion not in domicilios:
+            domicilios[direccion] = map.get(grafo['vertices'], direccion)['elements']
+    final.append(domicilios)
+    print("El id de los domiciliarios que componen el camino son:", '\n', tabulate(final, headers = 'keys', tablefmt= 'fancy_grid'), '\n')
+    print("La secuencia de ubicaciones que definen el camino simple son:", camino['elements'], '\n')
+    print("Y el listado de restaurantes encontrado son:", map.key_set(conexion['visited'])['elements'])
+    print("\n" + "=" * 100 + "\n")
+    
+    
+    
+
+
 
 def print_req_3(control):
-    origen = input("Ubicación origen (lat_long): ")
-    r = logic.req_3(control, origen)
-    print(f"\nTiempo de ejecución: {r['tiempo_ms']} ms")
-    print(f"Cantidad de paquetes entregados: {r['cantidad']}")
-    print(tabulate(r['tabla'], headers="keys", tablefmt="fancy_grid"))
+
+    geo_point = input("Por favor, escribe el punto geográfico para consultar: ")
+    print("\n" + "=" * 100 + "\n")
+
+    # Medir tiempo de ejecución
+    inicio = time()
+    dp_id, total_pedidos, vehiculo_favorito = l.req_3(control, geo_point)
+    duracion = time() - inicio
+
+    print(f"Tiempo de ejecución: {duracion:.6f} s\n")
+
+    if dp_id is None:
+        print("No se encontraron pedidos en el punto consultado.")
+    else:
+        # Mostrar resultados en tabla
+        resultados = [{
+            'Domiciliario': dp_id,
+            'Pedidos': total_pedidos,
+            'Vehículo más usado': vehiculo_favorito
+        }]
+        print(tabulate(resultados, headers='keys', tablefmt='fancy_grid'))
+
+    print("\n" + "=" * 100 + "\n")
+
 
 def print_req_4(control):
-    punto_a = input("Punto A (lat_long): ")
-    punto_b = input("Punto B (lat_long): ")
-    r = logic.req_4(control, punto_a, punto_b)
-    print(f"\nTiempo de ejecución: {r['tiempo_ms']} ms")
-    print("Ruta más rápida:")
-    print(tabulate(r['ruta'], headers=['#', 'Ubicación'], tablefmt="fancy_grid"))
-    print(f"Tiempo total: {r['tiempo_total']} s")
+    punto_a = input("Por favor escribe el punto donde se iniciara la busqueda: ")
+    punto_b = input("Por favor escribe el destino de la busqueda: ")
+    print("\n" + "=" * 100 + "\n")
+    tiempo_inical = time()
+    secuencia, lista= l.req_4(control,punto_a,punto_b)
+    tiempo_final = time() - tiempo_inical
+    print("Tiempo de ejecución:", tiempo_final)
+    print("La secuencia de ubicaciones entre los dos puntos son:", secuencia)
+    print("El listado de domiciliarios en comun para ESE CAMINO son:", lista)
+    print("\n" + "=" * 100 + "\n")
+    
+    
+    
+
+
 
 def print_req_5(control):
-    r = logic.req_5(control)
-    print(f"\nTiempo de ejecución: {r['tiempo_ms']} ms")
-    print(f"Total componentes fuertemente conectados: {r['total_componentes']}")
-    print(tabulate(r['conexiones'], headers=['Componente', 'Tamaño'], tablefmt="fancy_grid"))
+    """
+    Vista para el Requerimiento 5:
+    Pide punto geográfico inicial y número N de cambios,
+    llama a l.req_5, mide el tiempo y muestra los resultados.
+    """
+    print("\n" + "=" * 100)
+    print("Requerimiento 5: Identificar el domiciliario que recorre mayor distancia en N cambios")
+    print("=" * 100 + "\n")
+
+    punto_inicial_id = input("Por favor, escribe el ID del punto geográfico inicial (e.g., 'Latitud_Longitud'): ")
+    try:
+        N_cambios = int(input("Por favor, escribe el número N de cambios de ubicación a consultar: "))
+        if N_cambios < 0:
+            print("El número N de cambios no puede ser negativo.")
+            print("\n" + "=" * 100 + "\n")
+            return
+    except ValueError:
+        print("Número N de cambios inválido. Debe ser un entero.")
+        print("\n" + "=" * 100 + "\n")
+        return
+
+    print("\nCalculando...\n")
+
+    # Llamar a la función lógica y medir el tiempo
+    # Se asume que req_5 devuelve: domiciliario_id, max_distancia, camino_secuencia, tiempo_ejecucion_logica
+    # Nota: La función req_5 que te di anteriormente ya calcula su propio tiempo, así que podemos usar ese directamente.
+    
+    domiciliario_id, max_distancia, camino_secuencia_lista, duracion = l.req_5(control, punto_inicial_id, N_cambios)
+
+    print(f"Tiempo de ejecución del requerimiento: {duracion:.6f} segundos.\n")
+
+    if domiciliario_id is None:
+        print(f"No se encontró ningún domiciliario o camino válido para {N_cambios} cambios desde {punto_inicial_id}.")
+    else:
+        # Preparar datos para tabulate
+        resultados_domiciliario = [
+            {"Variable": "ID Domiciliario con Mayor Distancia", "Valor": domiciliario_id},
+            {"Variable": "Mayor Distancia Recorrida (km)", "Valor": f"{max_distancia:.4f} km"}
+        ]
+        
+        # Convertir la lista de secuencia de camino a un formato imprimible
+        camino_str_list = []
+        if camino_secuencia_lista is not None and camino_secuencia_lista['size'] > 0: # Usando la estructura de tu array_list
+            current = camino_secuencia_lista['first']
+            while current is not None:
+                camino_str_list.append(str(current['info']))
+                current = current['next']
+        
+        secuencia_imprimible = " -> ".join(camino_str_list) if camino_str_list else "No disponible"
+
+        print(tabulate(resultados_domiciliario, headers="keys", tablefmt="fancy_grid"))
+        print("\nSecuencia de ubicaciones del camino de mayor distancia:")
+        print(secuencia_imprimible)
+
+    print("\n" + "=" * 100 + "\n")
+
+
 
 def print_req_6(control):
-    origen = input("Ubicación origen (lat_long): ")
-    r = logic.req_6(control, origen)
-    print(f"\nTiempo de ejecución: {r['tiempo_ms']} ms")
-    print(f"Ubicaciones alcanzables: {r['cantidad_ubicaciones']}")
-    tabla = [[i+1, u] for i, u in enumerate(r['ubicaciones'])]
-    print(tabulate(tabla, headers=['#', 'Ubicación'], tablefmt='fancy_grid'))
-    camino = r['camino_mas_costoso']
-    print("\nCamino más costoso:")
-    print(f"Destino: {camino['destino']}, Tiempo: {camino['tiempo_total']} s")
-    secuencia = [[i+1, paso] for i, paso in enumerate(camino['secuencia'])]
-    print(tabulate(secuencia, headers=['#', 'Paso'], tablefmt='fancy_grid'))
+    punto_a = input("Por favor escribe el punto donde se iniciara la busqueda: ")
+    print("\n" + "=" * 100 + "\n")
+    tiempo_inical = time()
+    numero_ubic_alcanzables,id_alcanzables_sort, secuencia_mayor_tiempo, max_tiempo = l.req_6(control,punto_a)
+    tiempo_final = time() - tiempo_inical
+    print("Tiempo de ejecución:", tiempo_final)
+    print("La cantidad de ubicaciones que definen los caminos de c/m son:", numero_ubic_alcanzables,'\n')
+    print("Los ids de las ubicaciones alcanzables ordenados alfabeticamente son:", id_alcanzables_sort['elements'],'\n')
+    print("El camino de costo minimo desde", punto_a, "que implica mayor tiempo es:", 'Secuencia:', secuencia_mayor_tiempo['first'],'\n','\n' 'Tiempo:', max_tiempo)
+    print("\n" + "=" * 100 + "\n")
+
 
 def print_req_7(control):
-    origen = input("Ubicación origen (lat_long): ")
-    dom = input("ID del domiciliario: ")
-    r = logic.req_7(control, origen, dom)
-    print(f"\nTiempo de ejecución: {r['tiempo_ms']} ms")
-    print(f"Cantidad de ubicaciones en MST: {r['cantidad_ubicaciones']}")
-    tabla = [[i+1, u] for i, u in enumerate(r['ubicaciones'])]
-    print(tabulate(tabla, headers=['#', 'Ubicación'], tablefmt='fancy_grid'))
-    print(f"Costo total del árbol: {r['tiempo_total']} s")
+    punto_a = input("Por favor escribe el punto donde se iniciara la busqueda: ")
+    domiciliario = input("Por favor escriba el id del domiciliario:")
+    print("\n" + "=" * 100 + "\n")
+    tiempo_inical = time()
+    resp = l.req_7(control,punto_a,domiciliario)
+    tiempo_final = time() - tiempo_inical
+    print("Tiempo de ejecución:", tiempo_final)
+    print("La cantidad de ubicaciones que definen la subred, son:",resp['cantidad_ubicaciones_subred'],'\n')
+    print("Los ids que componen la subred alfabeticamente son:", resp['identificadores_subred_ordenados']['elements'], '\n')
+    print("El total en tiempo del arbol en costo minimo es:", resp['peso_total_mst'])
+    print("\n" + "=" * 100 + "\n")
 
 
 def print_req_8(control):
     """
-        Función que imprime la solución del Requerimiento 8 en consola
+    Vista para el Requerimiento 8:
+    Pide punto central, radio y ID de domiciliario,
+    llama a l.req_8, mide el tiempo y muestra la ruta al HTML generado.
     """
-    print('generando mapa...')
-    
-    return logic.req_8(control)
-    
+    centro = input("Por favor, escribe el punto central: ")
+    radio = float(input("Por favor, escribe el radio en kilómetros: "))
+    dp_id = input("Por favor, escribe el ID del domiciliario: ")
+    print("\n" + "=" * 100 + "\n")
 
+    inicio = time()
+    ruta_html = l.req_8(control, centro, radio, dp_id)
+    duracion = time() - inicio
 
+    print(f"Tiempo de ejecución: {duracion:.6f} s\n")
+    print(f"Mapa generado en: {ruta_html}")
+    print("Ábrelo en tu navegador para visualizar el recorrido.\n")
+
+    print("=" * 100 + "\n")
 # Se crea la lógica asociado a la vista
 control = new_logic()
 
@@ -124,17 +254,22 @@ def main():
         print_menu()
         inputs = input('Seleccione una opción para continuar\n')
         if int(inputs) == 1:
+            print("=" * 100)
             print("Cargando información de los archivos ....\n")
-            catalog, total_domicilios, total_domiciliarios, total_nodos, total_arcos, restaurantes, destinos, total_tiempo, delta = load_data(control)
-            print("🗂️ Catálogo cargado:", "Sí" if catalog else "No")
-            print("📦  Total de domicilios:", total_domicilios)
-            print("🚴‍♂️  Total de domiciliarios:", total_domiciliarios)
-            print("🧩  Total de nodos:", total_nodos)
-            print("🔗  Total de arcos:", total_arcos)
-            print("🍽️  Cantidad de restaurantes:", restaurantes)
-            print("📍  Cantidad de destinos:", destinos)
-            print("⏱️  Tiempo total de procesamiento:", total_tiempo, "segundos")
-            print("⏳  Delta de tiempo (carga):", delta, "milisegundos")
+            tiempo_inicial = time()
+            catalog, domicilios_procesados, total_tiempo_entregas = load_data(control)
+            tiempo_final = time() - tiempo_inicial
+            print("¡Información cargada con éxito!\n")
+            print("=" * 100)
+            print("Tiempo de ejecución:", tiempo_final,'\n')
+            print("1. El numero total de domicilios procesados son:", domicilios_procesados)
+            print("2. El numero total de domiciliarios identificados son:", map.size(catalog['ultimo_domicilio_persona']))
+            print("3. El numero total de nodos en el grafo creado son:", g.order(catalog['grafo_domicilios']))
+            print("4. El numero de Arcos en el grafo son:", int(g.size(catalog['grafo_domicilios'])))
+            print("5. El numero de restaurantes unicos identificados son: ", map.size(catalog['ubicaciones_restaurantes_unicas']))
+            print("6. El numero de ubicaciones de entrega unicas son: ", map.size(catalog['ubicaciones_destino_unicas']))
+            print('7. el tiempo promedio de entrega de todos los domicilios es: ' + str(total_tiempo_entregas / domicilios_procesados) + ' minutos')
+            print("\n" + "=" * 100 + "\n")
         elif int(inputs) == 2:
             print_req_1(control)
 

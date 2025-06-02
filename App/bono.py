@@ -2,204 +2,103 @@
 from DataStructures.Graph import digraph as gr  # Asumiendo que usas tu estructura de grafo
 from math import radians, sin, cos, sqrt, atan2
 import folium
-
-
-def generar_mapa(my_graph, archivo_salida="mapa_domicilios.html"):
-    # 1. Crear mapa centrado en Bogotá (ejemplo)
-    mapa = folium.Map(location=[4.6097, -74.0817], zoom_start=12)
-
-    # 2. Diccionarios para almacenar ubicaciones únicas
-    restaurantes = {}
-    destinos = {}
-
-    # 3. Recorrer todos los vértices del grafo
-    for node_id in gr.vertices(my_graph)['elements']:
-        node_info = gr.get_vertex_information(my_graph, node_id)
-        lat, lon = map(float, node_id.split("_"))  # Formato: "lat_lon"
-        
-        if node_info['info']['tipo'] == 'restaurante':
-            restaurantes[node_id] = (lat, lon)
-        else:
-            destinos[node_id] = (lat, lon)
-
-    # 4. Agregar marcadores al mapa
-    # Restaurantes (rojo)
-    for node_id, (lat, lon) in restaurantes.items():
-        folium.Marker(
-            location=[lat, lon],
-            popup=f"Restaurante: {node_id}",
-            icon=folium.Icon(color="red", icon="cutlery")
-        ).add_to(mapa)
-
-    # Destinos (azul)
-    for node_id, (lat, lon) in destinos.items():
-        folium.Marker(
-            location=[lat, lon],
-            popup=f"Destino: {node_id}",
-            icon=folium.Icon(color="blue", icon="home")
-        ).add_to(mapa)
-
-    # 5. Opcional: Conectar restaurantes con destinos (líneas verdes)
-    for node_id in restaurantes:
-        adjacents = gr.adjacents(my_graph, node_id)
-        for neighbor in adjacents['elements']:
-            if neighbor in destinos:
-                folium.PolyLine(
-                    locations=[
-                        [float(x) for x in node_id.split("_")],
-                        [float(x) for x in neighbor.split("_")]
-                    ],
-                    color="green",
-                    weight=2
-                ).add_to(mapa)
-
-    # 6. Guardar mapa como HTML
-    mapa.save(archivo_salida)
-    print(f"Mapa generado: {archivo_salida}")
-
-
-
-
-def distancia_haversine(lat1, lon1, lat2, lon2):
-    """
-    Calcula la distancia en km entre dos puntos geográficos.
-    """
-    R = 6371  # Radio de la Tierra en km
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * atan2(sqrt(a), sqrt(1-a))
-    return R * c
-""" 
-
-def filtrar_pedidos_en_radio(historial, domiciliario, centro, radio):
-    if domiciliario not in historial:
-        return []
+from DataStructures.List import array_list as lt
+import os
+import csv
+import math
+from time import time
+from DataStructures.Map import map_linear_probing as map
+from DataStructures.Graph import digraph as g 
+from DataStructures.List import array_list as lt
+from DataStructures.Graph import dfs
+from DataStructures.Graph import bfs
+from DataStructures.Graph import dijkstra as dijk
+from DataStructures.Graph import prim 
+import folium
     
-    lat_central, lon_central = map(float, centro.split("_"))
-    
-    pedidos_en_radio = []
-    for rest, dest in historial[domiciliario]:
-        lat, lon = map(float, dest.split("_"))
-        distancia = distancia_haversine(lat_central, lon_central, lat, lon)
-        if distancia <= radio:
-            pedidos_en_radio.append((rest, dest))
-    
-    return pedidos_en_radio
+def req_8(catalog, centro_id, radio_km, dp_id):
 
- """
-def filtrar_pedidos_en_radio(historial, domiciliario, nodo_central, radio_km, my_graph):
-    """
-    Retorna los pedidos del domiciliario que están dentro del radio.
-    Imprime información de debug para verificar nodos y adyacencias.
-    """
-    
-    if domiciliario not in historial:
-        print(f"❌ El domiciliario '{domiciliario}' no existe en el historial.")
-        return []
-    
-    # Obtener coordenadas del nodo central
-    lat_central, lon_central = map(float, nodo_central.split("_"))
-    
-    pedidos_en_radio = []
-    print(f"\n🔍 Debug: Filtrado para domiciliario '{domiciliario}' en radio {radio_km} km desde nodo {nodo_central}")
-    
-    for i, (rest, dest) in enumerate(historial[domiciliario]):
-        # Calcular distancia para el DESTINO
-        lat_dest, lon_dest = map(float, dest.split("_"))
-        distancia = distancia_haversine(lat_central, lon_central, lat_dest, lon_dest)
-        
-        if distancia <= radio_km:
-            print(f"\n✅ Pedido {i+1} DENTRO del radio ({distancia:.2f} km):")
-            print(f"   - Restaurante: {rest}")
-            print(f"   - Destino: {dest}")
-            
-            # Debug: Información de adyacencias del DESTINO
-            print("\n   🔗 Adyacencias del Destino:")
-            adjacents = gr.adjacents(my_graph, dest)['elements']
-            for vecino in adjacents:
-                peso = gr.get_edge(my_graph, dest, vecino)
-                print(f"      → {vecino} (Peso: {peso:.1f} min)")
-            
-            pedidos_en_radio.append((rest, dest))
-        else:
-            print(f"❌ Pedido {i+1} FUERA del radio ({distancia:.2f} km): Destino {dest}")
-    
-    print(f"\n📌 Total pedidos válidos: {len(pedidos_en_radio)}")
-    return pedidos_en_radio
+    # 1) Parsear centro
+    lat_str, lon_str = centro_id.split('_')
+    lat_c, lon_c = float(lat_str), float(lon_str)
 
-def graficar_recorrido(my_graph, domiciliario, nodo_central, radio_km):
-    
-    historial = my_graph['historial']
-    # 1. Filtrar pedidos en el radio (con debug)
-    pedidos = filtrar_pedidos_en_radio(historial, domiciliario, nodo_central, radio_km, my_graph)
-    
-    if not pedidos:
-        return
-    
-    # 2. Crear mapa centrado en el nodo central
-    lat_central, lon_central = map(float, nodo_central.split("_"))
-    mapa = folium.Map(location=[lat_central, lon_central], zoom_start=12)
-    
-    # 3. Dibujar radio de búsqueda
+    # 2) Crear mapa y círculo
+    mapa = folium.Map(location=[lat_c, lon_c], zoom_start=13)
     folium.Circle(
-        location=[lat_central, lon_central],
+        location=[lat_c, lon_c],
         radius=radio_km * 1000,
-        color="#3186cc",
-        fill=True,
-        fill_opacity=0.2
+        color='blue', weight=3, fill=False, opacity=0.5
     ).add_to(mapa)
-    
-    # 4. Procesar cada pedido válido
-    restaurantes_plot = set()
-    destinos_plot = set()
-    
-    for i, (rest, dest) in enumerate(pedidos):
-        # Coordenadas
-        lat_rest, lon_rest = map(float, rest.split("_"))
-        lat_dest, lon_dest = map(float, dest.split("_"))
-        
-        # Agregar RESTAURANTE (si no está ya)
-        if rest not in restaurantes_plot:
-            folium.Marker(
-                location=[lat_rest, lon_rest],
-                popup=f"Restaurante (Pedido {i+1})",
-                icon=folium.Icon(color="green", icon="cutlery")
-            ).add_to(mapa)
-            restaurantes_plot.add(rest)
-        
-        # Agregar DESTINO (si no está ya)
-        if dest not in destinos_plot:
-            folium.Marker(
-                location=[lat_dest, lon_dest],
-                popup=f"Destino (Pedido {i+1})",
-                icon=folium.Icon(color="red", icon="home")
-            ).add_to(mapa)
-            destinos_plot.add(dest)
-        
-        # Dibujar conexión RESTAURANTE → DESTINO (si no existe)
-        folium.PolyLine(
-            locations=[[lat_rest, lon_rest], [lat_dest, lon_dest]],
-            color="blue",
-            weight=2.5,
-            popup=f"Pedido {i+1} (Peso: {gr.get_edge(my_graph, rest, dest):.1f} min)"
+
+    # 3) Haversine para distancia en km
+    def _haversine(a_lat, a_lon, b_lat, b_lon):
+        R = 6371.0
+        φ1 = math.radians(a_lat)
+        φ2 = math.radians(b_lat)
+        dφ = math.radians(b_lat - a_lat)
+        dλ = math.radians(b_lon - a_lon)
+        a = math.sin(dφ/2)**2 + math.cos(φ1)*math.cos(φ2)*math.sin(dλ/2)**2
+        return 2 * R * math.asin(math.sqrt(a))
+
+    # 4) Filtrar vértices: que dp_id aparezca en info_lista y dentro del radio
+    todos = g.vertices(catalog['grafo_domicilios'])
+    region = lt.new_list()                       # lista de vid en región
+    coords = map.new_map(lt.size(todos), 0.5)    # vid -> (lat, lon)
+
+    for i in range(lt.size(todos)):
+        vid = lt.get_element(todos, i)
+        info_list = g.get_vertex_info(catalog['grafo_domicilios'], vid) or []
+
+        # comprobar pertenencia usando lt
+        pertenece = False
+        for j in range(lt.size(info_list)):
+            if lt.get_element(info_list, j) == dp_id:
+                pertenece = True
+                break
+        if not pertenece:
+            continue
+
+        # parsear coords del vid
+        lat_s, lon_s = vid.split('_')
+        lat_v, lon_v = float(lat_s), float(lon_s)
+
+        # filtrar por distancia
+        if _haversine(lat_c, lon_c, lat_v, lon_v) <= radio_km:
+            lt.add_last(region, vid)
+            map.put(coords, vid, (lat_v, lon_v))
+
+    # 5) Si no hay puntos en la región, devolver None
+    if lt.size(region) == 0:
+        return None
+
+    # 6) Dibujar marcadores verdes
+    for k in range(lt.size(region)):
+        vid = lt.get_element(region, k)
+        lat_v, lon_v = map.get(coords, vid)
+        folium.CircleMarker(
+            location=[lat_v, lon_v],
+            radius=5,
+            color='green',
+            fill=True,
+            fill_color='green',
+            popup=vid
         ).add_to(mapa)
+
+    # 7) Dibujar ruta continua en rojo, en el orden de 'region'
+    if lt.size(region) > 1:
+        path = []
+        for k in range(lt.size(region)):
+            vid = lt.get_element(region, k)
+            path.append(map.get(coords, vid))
+        folium.PolyLine(locations=path, color='red', weight=3, opacity=0.8).add_to(mapa)
+
+    # 8) Guardar HTML en Data/recorrido_domiciliario.html
+    base = os.path.dirname(__file__)
+    out_dir = os.path.abspath(os.path.join(base, '..', 'Data'))
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, 'recorrido_domiciliario.html')
+    mapa.save(out_path)
+
+    return out_path  
     
-    # 5. Dibujar adyacencias VÁLIDAS entre destinos (excluyendo peso 0)
-    for dest in destinos_plot:
-        for vecino in gr.adjacents(my_graph, dest)['elements']:
-            peso = gr.get_edge(my_graph, dest, vecino)
-            if vecino in destinos_plot and peso > 0:  # Solo conexiones válidas
-                lat1, lon1 = map(float, dest.split("_"))
-                lat2, lon2 = map(float, vecino.split("_"))
-                folium.PolyLine(
-                    locations=[[lat1, lon1], [lat2, lon2]],
-                    color="orange",
-                    weight=1.5,
-                    dash_array="5,5",
-                    popup=f"Conexión D-D (Peso: {peso:.1f} min)"
-                ).add_to(mapa)
-    
-    mapa.save('archivo_salida.html')
-    print(f"Mapa generado")
+
