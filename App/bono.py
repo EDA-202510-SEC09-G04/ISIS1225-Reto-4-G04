@@ -1,6 +1,8 @@
-import folium
+
 from DataStructures.Graph import digraph as gr  # Asumiendo que usas tu estructura de grafo
 from math import radians, sin, cos, sqrt, atan2
+import folium
+
 
 def generar_mapa(my_graph, archivo_salida="mapa_domicilios.html"):
     # 1. Crear mapa centrado en Bogotá (ejemplo)

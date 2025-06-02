@@ -46,12 +46,13 @@ def print_req_1(control):
     print(tabulate(r['tabla'], headers="keys", tablefmt="fancy_grid"))
 
 def print_req_2(control):
-    ini = input("Fecha inicio (YYYY-MM-DD): ")
-    fin = input("Fecha fin (YYYY-MM-DD): ")
-    r = logic.req_2(control, ini, fin)
-    print(f"\nTiempo de ejecución: {r['tiempo_ms']} ms")
-    print(f"Total entregas: {r['total']}")
-    print(tabulate(r['tabla'], headers="keys", tablefmt="fancy_grid"))
+    ini = input("Unbicaciòn A: ")
+    fin = input("Ubicaciòn B: ")
+    id = input("ID del domiciliario: ")
+    r = logic.req_2(control, id,ini, fin)
+    print(f"\nTiempo de ejecución: {r['tiempo_en_ms']} ms")
+    print(f"Total entregas: {r}")
+    # print(tabulate(r['tabla'], headers="keys", tablefmt="fancy_grid"))
 
 def print_req_3(control):
     origen = input("Ubicación origen (lat_long): ")

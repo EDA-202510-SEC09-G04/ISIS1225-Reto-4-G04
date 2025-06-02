@@ -57,7 +57,7 @@ def load_data(catalog):
     Carga los datos del reto
     """
     tiempo_inicial = get_time()
-    files = data_dir + 'deliverytime_20.csv'
+    files = data_dir + 'deliverytime_100.csv'
     input_file = csv.DictReader(open(files, encoding='utf-8'))
     
     my_graph = catalog['domicilios']
@@ -256,12 +256,11 @@ def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
             gr.insert_vertex(sub_grafo,v,info)
             
     for v in gr.vertices(sub_grafo)['elements']:
-       
-         info = gr.get_vertex_information(my_graph,v)
+        info = gr.get_vertex_information(my_graph,v)
         
         
          
-         if 'adjacents' in info:
+        if 'adjacents' in info:
             adjacents = info['adjacents']
           
             
@@ -271,50 +270,40 @@ def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
                 
                 if id_domiciliario in destino_info['info']['domiciliarios']:
                     edge = mp.get(adjacents, w)
-                    
-                    if  v is not None and w is not None and gr.contains_vertex(sub_grafo, v) and gr.contains_vertex(sub_grafo, w):
-                         gr.add_edge(sub_grafo, v, w, weight=edge['weight'], undirected=True)
+                    # Usa el peso correcto
+                    if v is not None and w is not None and gr.contains_vertex(sub_grafo, v) and gr.contains_vertex(sub_grafo, w):
+                        gr.add_edge(sub_grafo, v, w, weight=edge, undirected=True)
                     
                     
     # Recorrido BFS para encontrar el camino más corto
     bfs_result = bfs.bfs(sub_grafo,ubicacion_A)
     parent = bfs_result['parent']
     
+    # Reconstruir el camino desde B hasta A
     path = []
     current = ubicacion_B
     while current is not None and current in parent:
         path.append(current)
         current = parent[current]
-       
-        
     path.reverse()
     
-    print(path)
-    if len(path) > 1 and path[0] == ubicacion_A:
+    if len(path) >= 1 and path[0] == ubicacion_A:
         
         ids_domiciliarios = [id_domiciliario]
         restaurantes = []
-
-        
         for nodo in path:
-            
-            info = gr.get_vertex_information(my_graph,nodo)
-            
+            info = gr.get_vertex_information(my_graph, nodo)
             if info.get('tipo') == 'restaurante':
                 restaurantes.append(nodo)
-                
         respuesta = {
-            
             'cantidad_puntos_geograficos': len(path),
             'ids_domiciliarios': ids_domiciliarios,
             'camino': path,
             'restaurantes_en_camino': restaurantes
         }       
-        
     else:
         
         respuesta = {
-            
             'cantidad_puntos_geograficos': 0,
             'ids_domiciliarios': [],
             'camino': [],
@@ -324,11 +313,7 @@ def req_2(catalog, id_domiciliario,ubicacion_A,ubicacion_B):
         
     
     tiempo_final = get_time()
-    
-    delta_time = tiempo_final - tiempo_inicial
-    
-    respuesta['tiempo_en_ms'] = delta_time
-    
+    respuesta['tiempo_en_ms'] = tiempo_final - tiempo_inicial
     return respuesta
         
 
@@ -657,10 +642,10 @@ def req_8(catalog):
     domiciliario="SURRES01DEL03",
     nodo_central="20.0000_70.0000",  
     radio_km=400
-    )
+     )
     
     return mapa
-
+    
 
 # Funciones para medir tiempos de ejecucion
 
