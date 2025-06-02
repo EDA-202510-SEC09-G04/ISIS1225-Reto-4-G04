@@ -13,7 +13,7 @@ from DataStructures.Graph import digraph as gr
 from DataStructures.Graph import bfs as bfs
 from DataStructures.Map import map_linear_probing as mp
 from App import utils as ut
-from DataStructures.Graph import dijsktra_structure as dj
+from DataStructures.Graph import dijsktra as dj
 from DataStructures.Graph import prim_structure as pr
 from DataStructures.Graph import edge as ed
 from App import bono

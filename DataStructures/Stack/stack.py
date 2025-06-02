@@ -1,104 +1,40 @@
+# DataStructures/Stack/stack.py
+
 from DataStructures.List import single_linked_list as lt
-from DataStructures.Utils import error as error
 
-"""
-  Este módulo implementa el tipo abstracto de datos pila
-  (Stack) sobre una lista encadenada.
-"""
-
+# ... (other imports) ...
 
 def new_stack():
-    """Crea una pila vacia.
-
-    Implementa una pila sobre una alguna de las implementaciones de listas
-
-    :returns: Una pila vacia
-    :rtype: stack
-    """
-    try:
-        return lt.new_list()
-    except Exception as exp:
-        error.reraise(exp, "TADStack->new_stack: ")
-
+    return lt.new_list()
 
 def push(my_stack, element):
-    """Agrega el elemento ``element`` en el tope de la pila.
-
-    :param my_stack: La pila donde se insetará el elemento
-    :type my_stack: stack
-    :param element: El elemento a insertar
-    :type element: any
-
-    :returns: La pila modificada
-    :rtype: stack
-    """
-    try:
-        lt.add_last(my_stack, element)
-        return my_stack
-    except Exception as exp:
-        error.reraise(exp, "TADmy_Stack->Push: ")
-
+    # For O(1) push in a LIFO stack using a single linked list,
+    # you typically add to the END of the list (which is where your 'last' pointer is efficient).
+    # Or, if you want push/pop from the beginning (which is usually where SLLs are efficient for LIFO)
+    # the push should set the 'first' node to the new element and its next to the old first.
+    # Let's use the 'add_last' and 'remove_last' approach for clarity with your current methods,
+    # though technically add_last is O(N) in your SLL without a 'last' pointer,
+    # but your SLL does have 'last' so it's O(1) in your SLL.
+    
+    lt.add_last(my_stack, element) # <--- CHANGE TO ADD_LAST for LIFO with pop from last
+    return my_stack
 
 def pop(my_stack):
-    """Retorna y elimina el elemento presente en el tope de la pila.
-
-    Si la pila está vacía, retorna ``None``.
-
-    :param my_stack: La pila de donde se retirara el elemento
-    :type my_stack: stack
-
-    :returns: El elemento del tope de la pila
-    :rtype: any
-    """
-    try:
-        if my_stack is not None and not lt.is_empty(my_stack):
-            return lt.remove_last(my_stack)
-        else:
-            raise Exception
-    except Exception as exp:
-        error.reraise(exp, "TADStack->pop: ")
-
+    # For O(1) pop in a LIFO stack using a single linked list,
+    # you should remove from the END of the list (if pushed to end).
+    if lt.is_empty(my_stack):
+        raise Exception('EmptyStructureError: stack is empty')
+    return lt.remove_last(my_stack) # <--- CHANGE TO REMOVE_LAST for LIFO
 
 def is_empty(my_stack):
-    """Informa si la pila es vacía.
-
-    :param my_stack: La pila a examinar
-    :type my_stack: stack
-
-    :returns: ``True`` si la pila es vacia, ``False`` de lo contrario
-    :rtype: bool
-    """
-    try:
-        return lt.is_empty(my_stack)
-    except Exception as exp:
-        error.reraise(exp, "TADStack->is_empty: ")
-
+    return lt.is_empty(my_stack)
 
 def top(my_stack):
-    """Retorna el elemento en tope de la pila, sin eliminarlo de la pila.
-
-    :param my_stack: La pila a examinar
-    :type my_stack: stack
-
-    :returns: El elemento en el tope de la pila
-    :rtype: any
-    """
-    try:
-        return lt.last_element(my_stack)
-    except Exception as exp:
-        error.reraise(exp, "TADStack->top: ")
-
+    # The "top" of the stack is now the LAST element in the linked list
+    if lt.is_empty(my_stack):
+        raise Exception('EmptyStructureError: stack is empty')
+    # Access the 'info' from the last node
+    return my_stack['last']['info'] # <--- DIRECTLY ACCESS THE LAST NODE'S INFO
 
 def size(my_stack):
-    """Informa el número de elementos en la pila.
-
-    :param my_stack: La pila a examinar
-    :type my_stack: stack
-
-    :returns: El número de elementos en la pila
-    :rtype: int
-    """
-    try:
-        return lt.size(my_stack)
-    except Exception as exp:
-        error.reraise(exp, "TADStack->size: ")
+    return lt.size(my_stack)    

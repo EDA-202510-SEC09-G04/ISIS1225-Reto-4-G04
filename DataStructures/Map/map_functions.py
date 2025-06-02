@@ -35,6 +35,9 @@ def next_prime(n):
 
         :return: El siguiente número primo mayor a n
     """
+
+    if n == 1 or n == 0:
+        return 2
     found = False
     next_p = 1
     # Base case

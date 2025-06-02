@@ -1,190 +1,150 @@
-from pprint import pprint
-from DataStructures.Map import map_linear_probing as mp
-from DataStructures.Map import map_entry as me
+# DataStructures/Graph/no_digraph.py
+
+from DataStructures.Map import map_linear_probing as map
+from DataStructures.List import array_list as lt
+from DataStructures.Graph import vertex as ver
+from DataStructures.Graph import edge as edg 
 
 
-def new_graph(order, load_factor=0.5):
-    """Crea un grafo con una estructura clara"""
-    return {
-        'vertices': mp.new_map(num_elements=order, load_factor=load_factor),
-        'num_edges': 0,
-        'directed': False  # Añadir este flag para claridad
+
+def new_graph (order, directed=False):
+    graph = {
+        "directed": directed,
+        "order": 0, 
+        "num_edges": 0,
+        "vertices": None,        
+        "adjacency_list": None    
     }
+   
+    graph["vertices"] = map.new_map(order, 0.5)
+    graph["adjacency_list"] = map.new_map(order, 0.5)
+    
+    return graph
 
-def insert_vertex(my_graph, key, info):
-    """Inserta un vértice correctamente"""
-    if not isinstance(info, dict):
-        info = {'value': info}  # Asegurar estructura mínima
-    
-    # Inicializar estructura del vértice
-    vertex_data = {
-        'info': info,
-        'adjacents':mp.new_map(num_elements=2, load_factor=0.5)
-    }
-    
-    # Insertar usando el mapa
-    my_graph['vertices'] = mp.put(my_graph['vertices'], key, vertex_data)
+def insert_vertex (my_graph, key_u, info_u):
+    my_graph['vertices'] = map.put(my_graph['vertices'], key_u, info_u)
+    empty_adj_map = map.new_map(1, 0.5)
+    my_graph['adjacency_list'] = map.put(my_graph['adjacency_list'], key_u, empty_adj_map)
+    my_graph['order'] += 1
     return my_graph
 
-def update_vertex_info(my_graph, key_u, new_info):
-    if not contains_vertex(my_graph, key_u):
-        raise Exception("Vértice no encontrado")
-    
-    # Conservar la estructura de adyacentes si existe
-    current = mp.get(my_graph['vertices'], key_u)
-    if 'adjacents' in current:
-        new_info['adjacents'] = current['adjacents']
-    
-    mp.put(my_graph['vertices'], key_u, new_info)
+def update_vertex_info (my_graph, key_u, new_info_u):
+    if map.get(my_graph['vertices'], key_u) is None:
+        return None
+    else:
+        my_graph['vertices'] = map.put(my_graph['vertices'], key_u, new_info_u)
     return my_graph
 
-def remove_vertex(my_graph, key_u):
-    # Eliminar el vértice principal
-    my_graph["vertices"] = mp.remove(my_graph["vertices"], key_u)
+def add_edge (my_graph, key_u, key_v, weight):
+    """
+    Adds an edge from vertex key_u to vertex key_v with a given weight.
+    key_u: Key of the source vertex.
+    key_v: Key of the destination vertex.
+    weight: Weight of the edge.
+    """
+    # Check if both vertices exist
+    if map.get(my_graph['vertices'], key_u) is None:
+        raise Exception(f"El vertice {key_u} (source) no existe.")
+    if map.get(my_graph['vertices'], key_v) is None:
+        raise Exception(f"El vertice {key_v} (destination) no existe.")
+
+    # --- FIX START: Determine if edge(s) existed BEFORE any map.put in this call ---
+
+    # Get the current adjacency map for vertex u
+    adj_map_for_u_before_put = map.get(my_graph['adjacency_list'], key_u)
+    # Check if the u->v edge already existed (will be False if adj_map_for_u_before_put is None)
+    edge_u_v_existed_before = False
+    if adj_map_for_u_before_put is not None:
+        edge_u_v_existed_before = map.get(adj_map_for_u_before_put, key_v) is not None
+
+    # Get the current adjacency map for vertex v (needed for undirected reverse check)
+    adj_map_for_v_before_put = map.get(my_graph['adjacency_list'], key_v)
+    edge_v_u_existed_before = False # Flag for the reverse edge in undirected graphs
+    if not my_graph['directed'] and adj_map_for_v_before_put is not None: # Only check if undirected
+        edge_v_u_existed_before = map.get(adj_map_for_v_before_put, key_u) is not None
+
+    # --- FIX END: Existence flags are now correctly captured ---
+
+    # --- Add the u->v edge ---
+    adj_map_for_u = adj_map_for_u_before_put # Use the retrieved map reference
+    if adj_map_for_u is None: # If the map for u didn't exist, create it
+        adj_map_for_u = map.new_map(1, 0.5)
+        my_graph['adjacency_list'] = map.put(my_graph['adjacency_list'], key_u, adj_map_for_u)
     
-    # Eliminar todas las aristas que apuntan a este vértice
-    vertices = mp.key_set(my_graph["vertices"])
-    for key_v in vertices:
-        v_entry = mp.get(my_graph["vertices"], key_v)
-        if 'adjacents' in v_entry:
-            if mp.contains(v_entry['adjacents'], key_u):
-                mp.remove(v_entry['adjacents'], key_u)
-                my_graph['num_edges'] -= 1
+    new_edge_uv = edg.new_edge(key_v, weight) # Create the edge object
+    updated_adj_map_for_u = map.put(adj_map_for_u, key_v, new_edge_uv) # Add/update edge in u's map
+    my_graph['adjacency_list'] = map.put(my_graph['adjacency_list'], key_u, updated_adj_map_for_u) # Update main graph's reference
+
+    # --- If the graph is undirected, add the reverse edge (v->u) ---
+    if not my_graph['directed']:
+        adj_map_for_v = adj_map_for_v_before_put # Use the retrieved map reference
+        if adj_map_for_v is None: # If the map for v didn't exist, create it
+            adj_map_for_v = map.new_map(1, 0.5)
+            my_graph['adjacency_list'] = map.put(my_graph['adjacency_list'], key_v, adj_map_for_v)
+        
+        new_edge_vu = edg.new_edge(key_u, weight) # Create reverse edge object
+        updated_adj_map_for_v = map.put(adj_map_for_v, key_u, new_edge_vu) # Add/update edge in v's map
+        my_graph['adjacency_list'] = map.put(my_graph['adjacency_list'], key_v, updated_adj_map_for_v) # Update main graph's reference
+        
+        # --- FIX START: Increment num_edges based on BEFORE existence ---
+        # For an undirected graph, num_edges increments only if the conceptual edge (u,v)
+        # did not exist in either direction before this call.
+        if not edge_u_v_existed_before and not edge_v_u_existed_before:
+             my_graph['num_edges'] += 1
+        # --- FIX END ---
+    else: # For directed graphs
+        # For directed, increment num_edges only if the specific u->v edge didn't exist before.
+        if not edge_u_v_existed_before:
+             my_graph['num_edges'] += 1
+    
     return my_graph
-
-def add_edge(my_graph, u, v, weight, undirected=False):
-    # Verificar si la arista ya existe
-    if has_edge(my_graph, u, v) or (undirected and has_edge(my_graph, v, u)):
-        return my_graph  # No hacer nada si ya existe
-
-    # Añadir arista u→v
-    u_entry = mp.get(my_graph['vertices'], u)
-    u_entry['adjacents'] = mp.put(u_entry['adjacents'], v, weight)
-    
-    # Si es no dirigido, añadir v→u (pero no contar como nueva arista)
-    if undirected:
-        v_entry = mp.get(my_graph['vertices'], v)
-        v_entry['adjacents'] = mp.put(v_entry['adjacents'], u, weight)
-    
-    # Contar como 1 arista siempre (incluso para no dirigido)
-    my_graph['num_edges'] += 1
-    return my_graph
-
-def insert_directed_edge(my_graph, key_u, key_v, weight):
-    u_entry = mp.get(my_graph['vertices'], key_u)
-
-    if 'adjacents' not in u_entry:
-        u_entry['adjacents'] = mp.new_map(num_elements=2, load_factor=0.5)
-
-    # Verificar si ya existe el arco
-    existing_edge = mp.get(u_entry['adjacents'], key_v)
-    if existing_edge is None:
-        my_graph['num_edges'] += 1
-
-    edge_info = {'to': key_v, 'weight': weight}
-    mp.put(u_entry['adjacents'], key_v, edge_info)
-
-def has_edge(my_graph, key_u, key_v):
-    u_entry = mp.get(my_graph['vertices'], key_u)
-    return (u_entry is not None and 
-            'adjacents' in u_entry and 
-            mp.contains(u_entry['adjacents'], key_v))
-
 
 def order(my_graph):
-    return mp.size(my_graph['vertices'])
+    return my_graph['order']
 
 def size(my_graph):
     return my_graph['num_edges']
 
 def vertices(my_graph):
-    vertex_keys = mp.key_set(my_graph['vertices'])
-    return vertex_keys
+    return map.key_set(my_graph['vertices'])
 
 def degree(my_graph, key_u):
-    if not contains_vertex(my_graph, key_u):
-        raise Exception("El vertice no existe")
-    
-    vertex_entry = mp.get(my_graph['vertices'], key_u)
-    if 'adjacents' not in vertex_entry:
+    if map.get(my_graph['vertices'], key_u) is None:
+        raise Exception(f"El vertice {key_u} no existe.")
+    adj_map_for_u = map.get(my_graph['adjacency_list'], key_u)
+    if adj_map_for_u is None:
         return 0
-        
-    return mp.size(vertex_entry['adjacents'])
+    return map.size(adj_map_for_u)
 
-def get_edge(my_graph, key_u, key_v):
-    if not contains_vertex(my_graph, key_u):
-        raise Exception("El vertice u no existe")
-    
-    u_entry = mp.get(my_graph['vertices'], key_u)
-    if 'adjacents' not in u_entry:
+# As per your assignment, this function remains exactly as is.
+def out_degree(my_graph,key_u):
+    lista_adyacencia_u = map.get(my_graph['vertices'],key_u)
+    if lista_adyacencia_u == None:
+        raise Exception("El vertice no existe")
+    numero = lista_adyacencia_u['adjacents']['size']     
+    return numero
+
+
+def get_adjacents(my_graph, vertex_key):
+
+    if map.get(my_graph['vertices'], vertex_key) is None:
         return None
-        
-    edge = mp.get(u_entry['adjacents'], key_v)
-    return edge
-
-def get_vertex_information(my_graph, key_u):
-    if not contains_vertex(my_graph, key_u):
-        raise Exception("El vertice no existe")
+    adj_map = map.get(my_graph['adjacency_list'], vertex_key)
     
-    vertex_entry = mp.get(my_graph['vertices'], key_u)
-    return vertex_entry  # Devuelve directamente la entrada del mpa
-
-def contains_vertex(my_graph, key_u):
-    return mp.contains(my_graph['vertices'], key_u)
-
-
-def adjacents(my_graph, key_u):
-    if not contains_vertex(my_graph, key_u):
-        raise Exception("El vertice no existe")
+    if adj_map is None:
+        return map.new_map(1, 0.5) 
     
-    u_entry = mp.get(my_graph['vertices'], key_u)
-    if 'adjacents' not in u_entry:
-        return []
-        
-    return mp.key_set(u_entry['adjacents'])
+    return adj_map 
 
-def edges_vertex(my_graph, key_u):
-    if not contains_vertex(my_graph, key_u):
-        raise Exception("El vertice no existe")
 
-    u_entry = mp.get(my_graph['vertices'], key_u)
-    edges_list = []
+def adjacents(my_graph, vertex_key):
 
-    if 'adjacents' in u_entry:
-        adj_keys = mp.key_set(u_entry['adjacents'])
-        for key_v in adj_keys:
-            edge = mp.get(u_entry['adjacents'], key_v)
-            edges_list.append((key_u, key_v, edge['weight']))
-
-    return edges_list
-
-def get_vertex(my_graph, key_u):
-    if not contains_vertex(my_graph, key_u):
-        raise Exception("El vértice no existe")
-
-    vertex_entry = mp.get(my_graph['vertices'], key_u)
-    if vertex_entry is None:
-        raise Exception(f"No se encontró el vértice con clave: {key_u}")
+    adj_map = get_adjacents(my_graph, vertex_key) 
     
-    vertex_value = vertex_entry
+    if adj_map is None: 
+        return lt.new_list() 
 
-    vertex = {
-        'key': key_u,
-        'value': vertex_value,
-        'adjacents': []
-    }
+    return map.key_set(adj_map)
 
-    if 'adjacents' in vertex_value and 'table' in vertex_value['adjacents']:
-        adj_map = vertex_value['adjacents']
-        adj_keys = mp.key_set(adj_map)
-
-        for key_v in adj_keys:
-            edge = mp.get(adj_map, key_v)
-            if edge is not None:
-                vertex['adjacents'].append({
-                    'to': key_v,
-                    'weight': edge['weight']
-                })
-
-    return vertex
-
+def get_vertex_info(my_graph, key_u):
+    return map.get(my_graph['vertices'], key_u)
